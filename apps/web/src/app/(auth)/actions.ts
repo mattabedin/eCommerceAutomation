@@ -125,3 +125,13 @@ export async function loginAction(
 
   redirect('/app/dashboard');
 }
+
+// OAuth sign-in via form action. signIn() throws NEXT_REDIRECT internally
+// when redirect is enabled, which next/navigation handles correctly.
+export async function signInWithGoogle() {
+  await signIn('google', { redirectTo: '/app/dashboard' });
+}
+
+export async function signInWithMicrosoft() {
+  await signIn('microsoft-entra-id', { redirectTo: '/app/dashboard' });
+}

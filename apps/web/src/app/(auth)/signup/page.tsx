@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useFormState, useFormStatus } from 'react-dom';
 import { signupAction, type ActionResult } from '../actions';
+import { OAuthButtons, OAuthDivider } from '../oauth-buttons';
 
 const initial: ActionResult | null = null;
 
@@ -22,6 +23,9 @@ export default function SignupPage() {
         <p className="auth-sub">
           Free to build. No credit card. Live in under 5 minutes.
         </p>
+
+        <OAuthButtons />
+        <OAuthDivider label="or sign up with email" />
 
         <form action={formAction} className="auth-form">
           <label className="auth-field">

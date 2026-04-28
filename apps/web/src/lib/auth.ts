@@ -1,16 +1,24 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
+import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
-import { db, users } from '@forge/db';
+import { db, users, workspaces, workspaceMembers } from '@forge/db';
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
 });
+
+function workspaceSlugFor(email: string | null | undefined): string {
+  const base = (email ?? 'workspace').split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '-') ?? 'ws';
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base || 'ws'}-${suffix}`;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
@@ -43,7 +51,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    // OAuth providers. Auth.js auto-reads AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET etc.
+    // allowDangerousEmailAccountLinking lets users with a credentials account
+    // sign in via the same email on Google/Microsoft (the provider has already
+    // verified the email, so this is safe).
+    Google({ allowDangerousEmailAccountLinking: true }),
+    MicrosoftEntraID({
+      allowDangerousEmailAccountLinking: true,
+      // Default to /common so personal + work/school accounts both work.
+      // Override via env to restrict to a specific tenant.
+      issuer:
+        process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ||
+        'https://login.microsoftonline.com/common/v2.0',
+    }),
   ],
+  events: {
+    // Fires the first time the adapter creates a user (i.e. OAuth signups).
+    // Credentials signups insert the user manually and create their own
+    // workspace, so this branch only ever runs for Google/Microsoft.
+    async createUser({ user }) {
+      if (!user.id) return;
+      const existing = await db.query.workspaceMembers.findFirst({
+        where: eq(workspaceMembers.userId, user.id),
+      });
+      if (existing) return;
+      const [ws] = await db
+        .insert(workspaces)
+        .values({
+          name: user.name ? `${user.name}'s workspace` : 'My workspace',
+          slug: workspaceSlugFor(user.email),
+          ownerId: user.id,
+        })
+        .returning();
+      if (ws) {
+        await db.insert(workspaceMembers).values({
+          workspaceId: ws.id,
+          userId: user.id,
+          role: 'owner',
+        });
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.id = user.id;

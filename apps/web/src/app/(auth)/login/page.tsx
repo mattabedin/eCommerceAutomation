@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useFormState, useFormStatus } from 'react-dom';
 import { loginAction, type ActionResult } from '../actions';
+import { OAuthButtons, OAuthDivider } from '../oauth-buttons';
 
 const initial: ActionResult | null = null;
 
@@ -19,6 +20,9 @@ export default function LoginPage() {
 
         <h1>Sign in to Forge</h1>
         <p className="auth-sub">Welcome back.</p>
+
+        <OAuthButtons />
+        <OAuthDivider label="or with email" />
 
         <form action={formAction} className="auth-form">
           <label className="auth-field">
