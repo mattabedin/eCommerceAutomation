@@ -4,12 +4,17 @@ import Anthropic from '@anthropic-ai/sdk';
 import { auth } from '@/lib/auth';
 import { anthropic, BUILDER_MODEL } from '@/lib/anthropic/client';
 import { SYSTEM_PROMPT } from '@/lib/builder/system-prompt';
+import {
+  appendMessage,
+  ensureConversation,
+} from '@/lib/builder/conversation-helpers';
 import type { ChatStreamEvent } from '@/lib/builder/chat-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
+  conversationId: z.string().optional(),
   messages: z
     .array(
       z.object({
@@ -21,13 +26,11 @@ const bodySchema = z.object({
     .max(40),
 });
 
-// Auth.js v5 — wrap the handler with `auth()` so req.auth is populated from
-// the session cookie. `await auth()` inside a Route Handler can fail under
-// JWT mode because cookies() resolves before the auth core has parsed them.
 export const POST = auth(async req => {
-  if (!req.auth?.user) {
+  if (!req.auth?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
+  const userId = req.auth.user.id;
 
   let payload: unknown;
   try {
@@ -45,6 +48,27 @@ export const POST = auth(async req => {
     return new Response('First message must be user', { status: 400 });
   }
 
+  // Find or create the conversation. New ones get a title from the first
+  // user message; existing ones must belong to the signed-in user.
+  const lastUser = [...parsed.data.messages]
+    .reverse()
+    .find(m => m.role === 'user');
+  const ensure = await ensureConversation({
+    userId,
+    conversationId: parsed.data.conversationId,
+    firstUserMessage: parsed.data.messages[0]?.content,
+  });
+  if (!ensure.ok) {
+    return new Response(ensure.error, { status: ensure.status });
+  }
+  const { conversationId } = ensure;
+
+  // Persist the latest user turn before kicking off generation. Older turns
+  // are already in the DB (they were persisted on prior calls).
+  if (lastUser) {
+    await appendMessage(conversationId, 'user', lastUser.content);
+  }
+
   const stream = anthropic.messages.stream({
     model: BUILDER_MODEL,
     max_tokens: 1024,
@@ -52,9 +76,6 @@ export const POST = auth(async req => {
       {
         type: 'text',
         text: SYSTEM_PROMPT,
-        // Cache the system prompt for 5 minutes. Sonnet 4.6's minimum cacheable
-        // prefix is 2048 tokens; if the prompt is shorter the API silently
-        // skips the cache (no error). We verify with usage.cache_read_input_tokens.
         cache_control: { type: 'ephemeral' },
       },
     ],
@@ -68,18 +89,27 @@ export const POST = auth(async req => {
         controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
       }
 
+      let assistantText = '';
+
       try {
         for await (const event of stream) {
           if (
             event.type === 'content_block_delta' &&
             event.delta.type === 'text_delta'
           ) {
+            assistantText += event.delta.text;
             send({ type: 'text', delta: event.delta.text });
           }
         }
         const final = await stream.finalMessage();
+        // Persist the full assistant turn after the stream closes so later
+        // resumes see exactly what the user saw.
+        if (assistantText.trim()) {
+          await appendMessage(conversationId, 'assistant', assistantText);
+        }
         send({
           type: 'done',
+          conversationId,
           usage: {
             input_tokens: final.usage.input_tokens,
             output_tokens: final.usage.output_tokens,

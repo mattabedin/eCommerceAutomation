@@ -86,3 +86,41 @@ export const products = pgTable('product', {
   position: integer('position').notNull().default(0),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
 });
+
+// A conversation is one AI Builder session — a set of messages that may have
+// produced a brand (when the operator clicked Approve). Conversations live
+// alongside brands so the dashboard can show "recent chats" even if they
+// never resulted in a published store.
+export const conversations = pgTable('conversation', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  workspaceId: text('workspaceId')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  userId: text('userId')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  // Auto-derived from the first user message; truncated for display.
+  title: text('title'),
+  // Set when the conversation produced a brand via approveBlueprint. Null
+  // means draft / abandoned. Set null on brand delete so abandoned chats
+  // survive a brand deletion.
+  brandId: text('brandId').references(() => brands.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+});
+
+// Individual chat turns inside a conversation. Persisted as the user types
+// and as the assistant streams; client reload reads these back to resume.
+export const messages = pgTable('message', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  conversationId: text('conversationId')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: ['user', 'assistant'] }).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+});

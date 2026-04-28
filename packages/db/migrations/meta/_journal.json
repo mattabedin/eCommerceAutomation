@@ -15,6 +15,13 @@
       "when": 1777413166105,
       "tag": "0001_ancient_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777414279426,
+      "tag": "0002_organic_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

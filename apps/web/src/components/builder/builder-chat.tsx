@@ -38,6 +38,9 @@ export function BuilderChat({
   setBuildState,
   blueprint,
   setBlueprint,
+  conversationId,
+  onConversationId,
+  initialMessages,
   onApprove,
   approving = false,
   approveError = null,
@@ -50,19 +53,33 @@ export function BuilderChat({
   setBuildState: (next: BuildState | ((prev: BuildState) => BuildState)) => void;
   blueprint: Blueprint | null;
   setBlueprint: (bp: Blueprint | null) => void;
+  conversationId?: string;
+  onConversationId?: (id: string) => void;
+  initialMessages?: ChatMessage[];
   onApprove?: () => void;
   approving?: boolean;
   approveError?: string | null;
   gateApproval?: boolean;
 }) {
-  const [messages, setMessages] = useState<Message[]>([
-    { kind: 'ai', meta: 'FORGE · v0.4', text: GREETING },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const greeting: Message = { kind: 'ai', meta: 'FORGE · v0.4', text: GREETING };
+    if (!initialMessages || initialMessages.length === 0) return [greeting];
+    return [
+      greeting,
+      ...initialMessages.map(m =>
+        m.role === 'user'
+          ? ({ kind: 'user', text: m.content } satisfies Message)
+          : ({ kind: 'ai', text: m.content } satisfies Message),
+      ),
+    ];
+  });
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [building, setBuilding] = useState(false);
   const [partialJson, setPartialJson] = useState('');
-  const [hasReplied, setHasReplied] = useState(false);
+  const [hasReplied, setHasReplied] = useState(
+    Boolean(initialMessages && initialMessages.length > 0),
+  );
   const streamRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -112,7 +129,7 @@ export function BuilderChat({
       const res = await fetch('/api/builder/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, conversationId }),
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
@@ -152,6 +169,8 @@ export function BuilderChat({
               }
               return next;
             });
+          } else if (event.type === 'done') {
+            onConversationId?.(event.conversationId);
           } else if (event.type === 'error') {
             throw new Error(event.error);
           }
@@ -214,7 +233,7 @@ export function BuilderChat({
       const res = await fetch('/api/builder/generate-blueprint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, conversationId }),
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
@@ -253,6 +272,8 @@ export function BuilderChat({
               blueprint: null,
               status: 'ready',
             });
+          } else if (event.type === 'done') {
+            onConversationId?.(event.conversationId);
           } else if (event.type === 'error') {
             throw new Error(event.error);
           }

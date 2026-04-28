@@ -19,7 +19,7 @@ type Usage = {
 // Conversational chat — /api/builder/chat
 export type ChatStreamEvent =
   | { type: 'text'; delta: string }
-  | { type: 'done'; usage: Usage }
+  | { type: 'done'; conversationId: string; usage: Usage }
   | { type: 'error'; error: string };
 
 // Blueprint generation — /api/builder/generate-blueprint
@@ -27,5 +27,5 @@ export type BlueprintStreamEvent =
   | { type: 'stage'; index: number; label: string }
   | { type: 'partial'; json: string }
   | { type: 'blueprint'; blueprint: Blueprint }
-  | { type: 'done'; usage: Usage }
+  | { type: 'done'; conversationId: string; usage: Usage }
   | { type: 'error'; error: string };

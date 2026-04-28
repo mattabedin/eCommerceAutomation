@@ -5,35 +5,50 @@ import { BuilderChat } from './builder-chat';
 import { StorefrontFrame } from './storefront-frame';
 import { BRANDS, type BrandKey, type BuildState } from '@/lib/builder/mock-data';
 import type { Blueprint } from '@/lib/builder/blueprint-schema';
+import type { ChatMessage } from '@/lib/builder/chat-types';
 import { approveBlueprint } from '@/lib/builder/approve-action';
 
 const initialBuild: BuildState = { active: -1, blueprint: null, status: 'idle' };
 
-export function BuilderWorkspace() {
-  // brandKey is only used as a fallback for the storefront preview before any
-  // blueprint exists (so the empty state still has visual structure). Once
-  // generation completes, we render the real blueprint instead.
+export function BuilderWorkspace({
+  initialConversationId,
+  initialMessages,
+}: {
+  initialConversationId?: string;
+  initialMessages?: ChatMessage[];
+} = {}) {
   const [brandKey, setBrandKey] = useState<BrandKey>('pawluxe');
   const [buildState, setBuildState] = useState<BuildState>(initialBuild);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [conversationId, setConversationId] = useState<string | undefined>(
+    initialConversationId,
+  );
   const [approving, startApprove] = useTransition();
   const [approveError, setApproveError] = useState<string | null>(null);
 
   const fallbackBrand = BRANDS[brandKey];
+
+  function handleConversationId(id: string) {
+    setConversationId(id);
+    // Reflect the conversation in the URL so refresh resumes the same chat.
+    if (typeof window !== 'undefined' && id !== initialConversationId) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('id') !== id) {
+        url.searchParams.set('id', id);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }
 
   function handleApprove() {
     if (!blueprint || approving) return;
     setApproveError(null);
     startApprove(async () => {
       try {
-        const result = await approveBlueprint(blueprint);
+        const result = await approveBlueprint(blueprint, conversationId);
         if (!result.ok) setApproveError(result.error);
-        // Success path: server action calls redirect() — Next handles the
-        // navigation; this callback never resolves with ok:true.
       } catch (err) {
-        // NEXT_REDIRECT errors are rethrown by Next's runtime; anything else
-        // is an unexpected failure.
         if (
           err &&
           typeof err === 'object' &&
@@ -58,6 +73,9 @@ export function BuilderWorkspace() {
         setBuildState={setBuildState}
         blueprint={blueprint}
         setBlueprint={setBlueprint}
+        conversationId={conversationId}
+        onConversationId={handleConversationId}
+        initialMessages={initialMessages}
         onApprove={handleApprove}
         approving={approving}
         approveError={approveError}

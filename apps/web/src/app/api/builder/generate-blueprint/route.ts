@@ -8,12 +8,14 @@ import {
   BlueprintSchema,
   TOOL_INPUT_SCHEMA,
 } from '@/lib/builder/blueprint-schema';
+import { ensureConversation } from '@/lib/builder/conversation-helpers';
 import type { BlueprintStreamEvent } from '@/lib/builder/chat-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
+  conversationId: z.string().optional(),
   messages: z
     .array(
       z.object({
@@ -56,9 +58,10 @@ Quality bar:
 Do not respond in chat. Just call the tool.`;
 
 export const POST = auth(async req => {
-  if (!req.auth?.user) {
+  if (!req.auth?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
+  const userId = req.auth.user.id;
 
   let payload: unknown;
   try {
@@ -72,6 +75,18 @@ export const POST = auth(async req => {
       status: 400,
     });
   }
+
+  // Conversation must already exist (chat would have created it). If not,
+  // we still create one so the generated blueprint has somewhere to land.
+  const ensure = await ensureConversation({
+    userId,
+    conversationId: parsed.data.conversationId,
+    firstUserMessage: parsed.data.messages[0]?.content,
+  });
+  if (!ensure.ok) {
+    return new Response(ensure.error, { status: ensure.status });
+  }
+  const { conversationId } = ensure;
 
   const messages = [
     ...parsed.data.messages,
@@ -163,6 +178,7 @@ export const POST = auth(async req => {
         send({ type: 'blueprint', blueprint: result.data });
         send({
           type: 'done',
+          conversationId,
           usage: {
             input_tokens: final.usage.input_tokens,
             output_tokens: final.usage.output_tokens,

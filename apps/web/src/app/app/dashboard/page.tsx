@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import {
   db,
   brands,
+  conversations,
   products as productsTable,
   workspaceMembers,
 } from '@forge/db';
@@ -24,14 +25,20 @@ export default async function DashboardPage() {
   });
   const workspaceIds = memberships.map(m => m.workspaceId);
 
-  const userBrands = workspaceIds.length
-    ? await db.query.brands.findMany({
-        where: inArray(brands.workspaceId, workspaceIds),
-        orderBy: [desc(brands.createdAt)],
-      })
-    : [];
+  const [userBrands, recentChats] = workspaceIds.length
+    ? await Promise.all([
+        db.query.brands.findMany({
+          where: inArray(brands.workspaceId, workspaceIds),
+          orderBy: [desc(brands.createdAt)],
+        }),
+        db.query.conversations.findMany({
+          where: eq(conversations.userId, session.user.id),
+          orderBy: [desc(conversations.updatedAt)],
+          limit: 8,
+        }),
+      ])
+    : [[], []];
 
-  // Bulk product counts for all brands in one query.
   const counts = userBrands.length
     ? await db
         .select({
@@ -52,6 +59,7 @@ export default async function DashboardPage() {
   const totalBrands = userBrands.length;
   const totalProducts = counts.reduce((acc, c) => acc + Number(c.count), 0);
   const liveBrands = userBrands.filter(b => b.publishedAt).length;
+  const totalChats = recentChats.length;
 
   return (
     <div className="view-pad">
@@ -59,13 +67,13 @@ export default async function DashboardPage() {
         <div>
           <h1>Dashboard</h1>
           <div className="desc">
-            {totalBrands === 0
+            {totalBrands === 0 && totalChats === 0
               ? 'You haven’t built anything yet. Head to the AI Builder.'
               : `${totalBrands} ${totalBrands === 1 ? 'brand' : 'brands'} · ${totalProducts} products · ${liveBrands} live`}
           </div>
         </div>
         <Link href="/app/builder" className="btn btn-sm btn-primary">
-          + New brand
+          + New chat
         </Link>
       </div>
 
@@ -76,19 +84,75 @@ export default async function DashboardPage() {
         <Kpi label="Drafts" value={String(totalBrands - liveBrands)} />
       </div>
 
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel-head">
+          <div className="panel-title">Recent chats</div>
+          <div className="panel-sub">
+            {totalChats === 0 ? 'No chats yet' : `${totalChats} most recent`}
+          </div>
+        </div>
+        {totalChats === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 12 }}>
+              Start a conversation with the AI Builder. Every chat is saved.
+            </div>
+            <Link href="/app/builder" className="btn btn-sm btn-accent">
+              Open the AI Builder →
+            </Link>
+          </div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Chat</th>
+                <th>Status</th>
+                <th>Last activity</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {recentChats.map(c => (
+                <tr key={c.id}>
+                  <td style={{ fontWeight: 500, maxWidth: 480 }}>
+                    {c.title ?? 'Untitled chat'}
+                  </td>
+                  <td>
+                    <span
+                      className="status-pill"
+                      data-tone={c.brandId ? 'green' : 'gray'}
+                    >
+                      {c.brandId ? 'published' : 'draft'}
+                    </span>
+                  </td>
+                  <td style={{ color: 'var(--fg-3)' }}>
+                    {formatRelative(c.updatedAt)}
+                  </td>
+                  <td>
+                    <Link
+                      href={`/app/builder?id=${c.id}`}
+                      className="btn btn-sm btn-ghost"
+                    >
+                      Resume →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       <div className="panel">
         <div className="panel-head">
           <div className="panel-title">Your stores</div>
           <div className="panel-sub">
-            {totalBrands === 0
-              ? 'No brands yet'
-              : `${totalBrands} total`}
+            {totalBrands === 0 ? 'No brands yet' : `${totalBrands} total`}
           </div>
         </div>
         {totalBrands === 0 ? (
           <div style={{ padding: 32, textAlign: 'center' }}>
             <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 12 }}>
-              Describe a store in plain English and let Forge build it.
+              Approve a blueprint in the AI Builder to publish your first store.
             </div>
             <Link href="/app/builder" className="btn btn-sm btn-accent">
               Open the AI Builder →
