@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { BuilderChat } from './builder-chat';
 import { StorefrontFrame } from './storefront-frame';
 import { BRANDS, type BrandKey, type BuildState } from '@/lib/builder/mock-data';
 import type { Blueprint } from '@/lib/builder/blueprint-schema';
+import { approveBlueprint } from '@/lib/builder/approve-action';
 
 const initialBuild: BuildState = { active: -1, blueprint: null, status: 'idle' };
 
@@ -16,20 +17,35 @@ export function BuilderWorkspace() {
   const [buildState, setBuildState] = useState<BuildState>(initialBuild);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [approving, startApprove] = useTransition();
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   const fallbackBrand = BRANDS[brandKey];
 
   function handleApprove() {
-    // Phase 2D will materialise the blueprint into real DB rows + trigger publish.
-    if (!blueprint) {
-      alert(
-        'Phase 2D will create the products, pages, and theme in your workspace, then trigger the first deploy.',
-      );
-      return;
-    }
-    alert(
-      `Approve & publish — Phase 2D will materialise ${blueprint.brand_name} (${blueprint.products.length} products) into your workspace and deploy to ${blueprint.domain}.`,
-    );
+    if (!blueprint || approving) return;
+    setApproveError(null);
+    startApprove(async () => {
+      try {
+        const result = await approveBlueprint(blueprint);
+        if (!result.ok) setApproveError(result.error);
+        // Success path: server action calls redirect() — Next handles the
+        // navigation; this callback never resolves with ok:true.
+      } catch (err) {
+        // NEXT_REDIRECT errors are rethrown by Next's runtime; anything else
+        // is an unexpected failure.
+        if (
+          err &&
+          typeof err === 'object' &&
+          'digest' in err &&
+          typeof (err as { digest: unknown }).digest === 'string' &&
+          (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+        ) {
+          throw err;
+        }
+        setApproveError(err instanceof Error ? err.message : 'Approval failed');
+      }
+    });
   }
 
   return (
@@ -43,6 +59,8 @@ export function BuilderWorkspace() {
         blueprint={blueprint}
         setBlueprint={setBlueprint}
         onApprove={handleApprove}
+        approving={approving}
+        approveError={approveError}
         gateApproval
       />
       <StorefrontFrame

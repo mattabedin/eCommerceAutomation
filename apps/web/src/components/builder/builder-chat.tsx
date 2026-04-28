@@ -39,6 +39,8 @@ export function BuilderChat({
   blueprint,
   setBlueprint,
   onApprove,
+  approving = false,
+  approveError = null,
   gateApproval = true,
 }: {
   fallbackBrand: Brand;
@@ -49,6 +51,8 @@ export function BuilderChat({
   blueprint: Blueprint | null;
   setBlueprint: (bp: Blueprint | null) => void;
   onApprove?: () => void;
+  approving?: boolean;
+  approveError?: string | null;
   gateApproval?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([
@@ -358,17 +362,31 @@ export function BuilderChat({
                         </code>
                         ?
                       </span>
-                      <button type="button" className="btn btn-sm">
+                      <button type="button" className="btn btn-sm" disabled={approving}>
                         Edit
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm btn-accent"
                         onClick={onApprove}
+                        disabled={approving}
                       >
-                        Approve & publish
+                        {approving ? 'Publishing…' : 'Approve & publish'}
                       </button>
                     </div>
+                    {approveError && (
+                      <div
+                        style={{
+                          padding: '8px 12px',
+                          fontSize: 11.5,
+                          color: 'var(--rose)',
+                          borderTop: '1px solid var(--border)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {approveError}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
