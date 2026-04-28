@@ -140,7 +140,12 @@ export const POST = auth(async req => {
           throw new Error('Model did not emit the generate_blueprint tool call.');
         }
 
-        const result = BlueprintSchema.safeParse(toolBlock.input);
+        // Normalise model-generated fields that don't always fit the schema
+        // exactly. Better to forgive minor format slips than fail the whole
+        // build over a misshapen domain string.
+        const normalised = normaliseToolInput(toolBlock.input);
+
+        const result = BlueprintSchema.safeParse(normalised);
         if (!result.success) {
           throw new Error(
             `Blueprint validation failed: ${result.error.issues
@@ -189,3 +194,68 @@ export const POST = auth(async req => {
     },
   });
 });
+
+// Coerce loosely-formatted strings the model commonly emits into the shapes
+// the schema expects. We do this BEFORE Zod validation so a stray "https://",
+// uppercase letter, or missing .forge.shop suffix doesn't fail the entire
+// build.
+function normaliseToolInput(input: unknown): unknown {
+  if (!input || typeof input !== 'object') return input;
+  const obj = { ...(input as Record<string, unknown>) };
+
+  if (typeof obj.domain === 'string') {
+    obj.domain = normaliseDomain(obj.domain);
+  }
+
+  // Hex colors: ensure leading # and lowercase. Three-char shortcuts (#abc)
+  // get expanded to six.
+  if (obj.colors && typeof obj.colors === 'object') {
+    const colors = { ...(obj.colors as Record<string, unknown>) };
+    for (const key of ['primary', 'secondary', 'accent']) {
+      const v = colors[key];
+      if (typeof v === 'string') colors[key] = normaliseHex(v);
+    }
+    obj.colors = colors;
+  }
+
+  if (Array.isArray(obj.products)) {
+    obj.products = obj.products.map(p => {
+      if (!p || typeof p !== 'object') return p;
+      const prod = { ...(p as Record<string, unknown>) };
+      if (typeof prod.tone === 'string') prod.tone = normaliseHex(prod.tone);
+      return prod;
+    });
+  }
+
+  return obj;
+}
+
+function normaliseDomain(input: string): string {
+  let s = input.trim().toLowerCase();
+  s = s.replace(/^https?:\/\//, '');
+  s = s.split('/')[0] ?? s;
+  let slug: string;
+  if (s.endsWith('.forge.shop')) {
+    slug = s.slice(0, -'.forge.shop'.length);
+  } else {
+    // Strip whatever TLD the model used (.com / .co / etc.) and keep the
+    // first segment as the slug.
+    slug = (s.split('.')[0] ?? s).trim();
+  }
+  slug = slug
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!slug) slug = 'store';
+  return `${slug}.forge.shop`;
+}
+
+function normaliseHex(input: string): string {
+  let s = input.trim().toLowerCase();
+  if (!s.startsWith('#')) s = `#${s}`;
+  // Expand #abc to #aabbcc.
+  if (/^#[0-9a-f]{3}$/.test(s)) {
+    s = `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`;
+  }
+  return s;
+}
