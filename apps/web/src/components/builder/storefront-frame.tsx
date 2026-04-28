@@ -1,27 +1,118 @@
 'use client';
 
-import { PRODUCTS, type Brand, type BrandKey, type BuildState, type Product } from '@/lib/builder/mock-data';
+import {
+  PRODUCTS,
+  type Brand,
+  type BrandKey,
+  type BuildState,
+  type Product,
+} from '@/lib/builder/mock-data';
+import type { Blueprint } from '@/lib/builder/blueprint-schema';
 
 type Device = 'desktop' | 'mobile';
 
+// Normalised view of a product the storefront can render. The mock catalogue
+// and the LLM-generated blueprint products have different shapes; this is the
+// thin shape the preview actually needs.
+type DisplayProduct = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  was: number;
+  tone: string;
+};
+
+type DisplayBrand = {
+  name: string;
+  domain: string;
+  colors: { primary: string; secondary: string; accent: string };
+  categories: string[];
+  heroHeadline: string;
+  heroSubhead: string;
+};
+
+const GENERIC_BENEFITS = [
+  { i: '✦', t: 'Built to last', s: 'Pieces designed for years of daily use, not seasons.' },
+  { i: '✈', t: 'Free fast shipping', s: '2–3 day delivery, carbon-offset, no minimum.' },
+  { i: '↺', t: '60-day returns', s: "Live with it. If it isn't right, we'll take it back." },
+  { i: '◐', t: 'Made responsibly', s: 'Materials sourced from partners we audit ourselves.' },
+];
+
+const PAWLUXE_BENEFITS = [
+  { i: '↺', t: 'Lifetime repairs', s: 'We fix anything we make, forever.' },
+  { i: '✦', t: 'Hand-finished', s: 'Each piece passes 12 quality checks.' },
+  { i: '◐', t: 'Ethical leather', s: 'LWG Gold certified tanneries.' },
+  { i: '✈', t: 'Free US shipping', s: 'Two-day, carbon-offset.' },
+];
+
+const DESKNOVA_BENEFITS = [
+  { i: '◇', t: '5-year warranty', s: 'On every piece, no questions.' },
+  { i: '⚡', t: 'Ships in 48h', s: 'From Portland or Berlin.' },
+  { i: '◐', t: 'Recycled materials', s: '70% post-consumer aluminum.' },
+  { i: '✓', t: '60-day returns', s: 'Use it. Live with it. Decide.' },
+];
+
 export function StorefrontFrame({
-  brand,
+  fallbackBrand,
   brandKey,
+  blueprint,
   buildState,
   device,
   setDevice,
 }: {
-  brand: Brand;
+  fallbackBrand: Brand;
   brandKey: BrandKey;
+  blueprint: Blueprint | null;
   buildState: BuildState;
   device: Device;
   setDevice: (d: Device) => void;
 }) {
-  const ready = buildState.status === 'ready' || buildState.active >= 6;
-  const showHero = buildState.active >= 2;
-  const showCatalog = buildState.active >= 4;
-  const showBenefits = buildState.active >= 3;
-  const products = PRODUCTS[brandKey] ?? [];
+  // Pull the display brand + products from the blueprint when present, else
+  // fall back to the mock for the empty / pre-build state.
+  const brand: DisplayBrand = blueprint
+    ? {
+        name: blueprint.brand_name,
+        domain: blueprint.domain,
+        colors: blueprint.colors,
+        categories: blueprint.categories,
+        heroHeadline: blueprint.hero_headline,
+        heroSubhead: blueprint.hero_subhead,
+      }
+    : {
+        name: fallbackBrand.name,
+        domain: fallbackBrand.domain,
+        colors: fallbackBrand.colors,
+        categories: fallbackBrand.categories,
+        heroHeadline: fallbackBrand.heroH,
+        heroSubhead: fallbackBrand.heroP,
+      };
+
+  const products: DisplayProduct[] = blueprint
+    ? blueprint.products.map((p, i) => ({
+        id: `g${i + 1}`,
+        name: p.name,
+        category: p.category,
+        price: p.price,
+        was: p.was,
+        tone: p.tone,
+      }))
+    : (PRODUCTS[brandKey] ?? []).map(toDisplay);
+
+  const benefits = blueprint
+    ? GENERIC_BENEFITS
+    : brandKey === 'pawluxe'
+      ? PAWLUXE_BENEFITS
+      : DESKNOVA_BENEFITS;
+
+  // While the LLM is mid-generation, we may have a partial blueprint with
+  // some products and no others. The reveal stages still gate which sections
+  // appear so the storefront fills in section-by-section as before.
+  const showHero = blueprint
+    ? Boolean(blueprint.hero_headline)
+    : buildState.active >= 2;
+  const showCatalog = blueprint ? products.length > 0 : buildState.active >= 4;
+  const showBenefits = blueprint ? true : buildState.active >= 3;
 
   return (
     <div className="preview-pane">
@@ -73,9 +164,8 @@ export function StorefrontFrame({
             </div>
             <StoreBody
               brand={brand}
-              brandKey={brandKey}
               products={products}
-              ready={ready}
+              benefits={benefits}
               showHero={showHero}
               showCatalog={showCatalog}
               showBenefits={showBenefits}
@@ -86,9 +176,8 @@ export function StorefrontFrame({
             <div className="phone-screen">
               <StoreBody
                 brand={brand}
-                brandKey={brandKey}
                 products={products.slice(0, 4)}
-                ready={ready}
+                benefits={benefits}
                 showHero={showHero}
                 showCatalog={showCatalog}
                 showBenefits={showBenefits}
@@ -102,49 +191,47 @@ export function StorefrontFrame({
   );
 }
 
+function toDisplay(p: Product): DisplayProduct {
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.cat,
+    price: p.price,
+    was: p.was,
+    tone: p.tone,
+  };
+}
+
+type Benefit = { i: string; t: string; s: string };
+
 function StoreBody({
   brand,
-  brandKey,
   products,
-  ready: _ready,
+  benefits,
   showHero,
   showCatalog,
   showBenefits,
   mobile = false,
 }: {
-  brand: Brand;
-  brandKey: BrandKey;
-  products: Product[];
-  ready: boolean;
+  brand: DisplayBrand;
+  products: DisplayProduct[];
+  benefits: Benefit[];
   showHero: boolean;
   showCatalog: boolean;
   showBenefits: boolean;
   mobile?: boolean;
 }) {
   const c = brand.colors;
-  const benefits =
-    brandKey === 'pawluxe'
-      ? [
-          { i: '↺', t: 'Lifetime repairs', s: 'We fix anything we make, forever.' },
-          { i: '✦', t: 'Hand-finished', s: 'Each piece passes 12 quality checks.' },
-          { i: '◐', t: 'Ethical leather', s: 'LWG Gold certified tanneries.' },
-          { i: '✈', t: 'Free US shipping', s: 'Two-day, carbon-offset.' },
-        ]
-      : [
-          { i: '◇', t: '5-year warranty', s: 'On every piece, no questions.' },
-          { i: '⚡', t: 'Ships in 48h', s: 'From Portland or Berlin.' },
-          { i: '◐', t: 'Recycled materials', s: '70% post-consumer aluminum.' },
-          { i: '✓', t: '60-day returns', s: 'Use it. Live with it. Decide.' },
-        ];
-
-  const heroParts = brand.heroH.split(' ');
+  const heroParts = brand.heroHeadline.split(' ');
   const heroLast = heroParts.slice(-1).join(' ');
   const heroLead = heroParts.slice(0, -1).join(' ');
 
-  const productSlots: (Product | null)[] = showCatalog
-    ? products
-    : Array(mobile ? 4 : 8).fill(null);
-  const benefitSlots: ((typeof benefits)[number] | null)[] = showBenefits
+  const productSlots: (DisplayProduct | null)[] =
+    showCatalog && products.length > 0
+      ? products
+      : Array(mobile ? 4 : 8).fill(null);
+
+  const benefitSlots: (Benefit | null)[] = showBenefits
     ? benefits
     : Array(4).fill(null);
 
@@ -186,7 +273,7 @@ function StoreBody({
               <h1 style={{ fontSize: mobile ? 32 : 56, color: c.primary }}>
                 {heroLead} <em style={{ color: c.secondary }}>{heroLast}</em>
               </h1>
-              <p>{brand.heroP}</p>
+              <p>{brand.heroSubhead}</p>
               <button
                 type="button"
                 className="btn"
@@ -225,19 +312,21 @@ function StoreBody({
       <section className="store-section">
         <h2 style={{ color: c.primary, fontSize: mobile ? 22 : 32 }}>Featured</h2>
         <div className="sub">
-          {showCatalog ? `${products.length} pieces · curated by Forge AI` : 'AI is selecting products…'}
+          {showCatalog
+            ? `${products.length} pieces · curated by Forge AI`
+            : 'AI is selecting products…'}
         </div>
         <div
           className="product-grid"
           style={mobile ? { gridTemplateColumns: 'repeat(2, 1fr)' } : undefined}
         >
           {productSlots.map((p, i) => (
-            <div key={i} className="product-card">
+            <div key={p?.id ?? i} className="product-card">
               {p ? (
                 <>
                   <div
                     className="product-img"
-                    data-label={`${p.cat.toLowerCase()} · ${p.id}`}
+                    data-label={`${p.category.toLowerCase()} · ${p.id}`}
                     style={{
                       background: `repeating-linear-gradient(135deg, ${p.tone}22, ${p.tone}22 8px, ${p.tone}11 8px, ${p.tone}11 16px), linear-gradient(135deg, ${p.tone}66, ${p.tone}cc)`,
                     }}

@@ -18,6 +18,10 @@ export const anthropic = new Anthropic({
   apiKey: apiKey ?? 'placeholder',
 });
 
-// Pin the model in one place so 2C/2D/2E can swap to Opus 4.7 for blueprint
-// generation without scattering literals.
+// Pin models in one place so 2C/2D can swap without scattering literals.
+// Conversational chat uses Sonnet 4.6 for cost — many turns per session.
+// Blueprint generation runs once per build and benefits from Opus 4.7's
+// stronger structured-output and brand-judgement capability. The skill's
+// default is Opus 4.7 unless explicitly specified otherwise.
 export const BUILDER_MODEL = 'claude-sonnet-4-6';
+export const BLUEPRINT_MODEL = 'claude-opus-4-7';
