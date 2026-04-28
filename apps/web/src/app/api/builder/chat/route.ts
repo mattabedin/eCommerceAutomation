@@ -21,9 +21,11 @@ const bodySchema = z.object({
     .max(40),
 });
 
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
+// Auth.js v5 — wrap the handler with `auth()` so req.auth is populated from
+// the session cookie. `await auth()` inside a Route Handler can fail under
+// JWT mode because cookies() resolves before the auth core has parsed them.
+export const POST = auth(async req => {
+  if (!req.auth?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -108,4 +110,4 @@ export async function POST(req: Request) {
       'X-Accel-Buffering': 'no',
     },
   });
-}
+});
