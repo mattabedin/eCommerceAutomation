@@ -25,6 +25,24 @@ const bodySchema = z.object({
 // the session cookie. `await auth()` inside a Route Handler can fail under
 // JWT mode because cookies() resolves before the auth core has parsed them.
 export const POST = auth(async req => {
+  // TEMP diagnostic logging — visible in Vercel runtime logs. Strip once auth
+  // is confirmed working.
+  const cookieHeader = req.headers.get('cookie') ?? '';
+  const cookieNames = cookieHeader
+    .split(';')
+    .map(s => s.trim().split('=')[0])
+    .filter(Boolean);
+  console.log('[builder/chat] auth diag', {
+    hasReqAuth: Boolean(req.auth),
+    hasUser: Boolean(req.auth?.user),
+    userId: (req.auth?.user as { id?: string } | undefined)?.id,
+    cookieNames,
+    hasAuthSecret: Boolean(process.env.AUTH_SECRET),
+    nextauthUrlSet: Boolean(process.env.NEXTAUTH_URL),
+    authUrlSet: Boolean(process.env.AUTH_URL),
+    onVercel: Boolean(process.env.VERCEL),
+  });
+
   if (!req.auth?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
