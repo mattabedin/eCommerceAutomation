@@ -5,13 +5,20 @@ import { StreamingText } from './streaming-text';
 import { JsonStream } from './json-stream';
 import { BuildStages } from './build-stages';
 import {
-  BRANDS,
   STAGES,
   scriptPromptFor,
   type Brand,
   type BrandKey,
   type BuildState,
 } from '@/lib/builder/mock-data';
+import type {
+  ChatMessage,
+  ChatStreamEvent,
+} from '@/lib/builder/chat-types';
+
+// Initial greeting — hardcoded so the first paint is instant. Real LLM kicks
+// in once the user sends a prompt.
+const GREETING = `Hi. I'll build a complete store from a single prompt — brand, pages, products, pricing, policies. Describe your business, or tap a starter below.`;
 
 type Message =
   | { kind: 'user'; text: string }
@@ -19,16 +26,10 @@ type Message =
       kind: 'ai';
       meta?: string;
       text: string;
-      followups?: { q: string; a: string[] }[];
+      streaming?: boolean;
       isBuild?: boolean;
       isApproval?: boolean;
     };
-
-const FOLLOWUPS = [
-  { q: 'Sourcing model?', a: ['Hand-picked suppliers', 'Dropshipping', 'Hybrid'] },
-  { q: 'Inventory size?', a: ['8 hero products', '20+ catalog', 'Full assortment'] },
-  { q: 'Tone preference?', a: ['Premium · warm', 'Clean · minimal', 'Playful'] },
-];
 
 export function BuilderChat({
   brand,
@@ -48,49 +49,145 @@ export function BuilderChat({
   gateApproval?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      kind: 'ai',
-      meta: 'FORGE · v0.4',
-      text: `Hi. I'll build a complete store from a single prompt — brand, pages, products, pricing, policies. Describe your business, or tap a starter below.`,
-    },
+    { kind: 'ai', meta: 'FORGE · v0.4', text: GREETING },
   ]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [hasReplied, setHasReplied] = useState(false);
   const streamRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight;
   }, [messages, buildState]);
 
-  function submit(text: string) {
+  // Cancel any in-flight stream on unmount.
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  function toApiMessages(history: Message[]): ChatMessage[] {
+    // Drop the hardcoded greeting (first message) — the system prompt covers it.
+    // Drop any in-progress empty placeholders.
+    const out: ChatMessage[] = [];
+    for (let i = 1; i < history.length; i++) {
+      const m = history[i];
+      if (!m) continue;
+      if (m.kind === 'user' && m.text.trim()) {
+        out.push({ role: 'user', content: m.text });
+      } else if (m.kind === 'ai' && m.text.trim()) {
+        out.push({ role: 'assistant', content: m.text });
+      }
+    }
+    return out;
+  }
+
+  async function submit(text: string) {
     if (!text.trim() || busy) return;
-    setMessages(m => [...m, { kind: 'user', text }]);
     setDraft('');
     setBusy(true);
-    setBuildState({ active: -1, blueprint: null, status: 'thinking' });
 
-    setTimeout(() => {
-      setMessages(m => [
-        ...m,
-        {
-          kind: 'ai',
-          meta: 'PLANNING · niche analysis',
-          text: `Got it — ${brand.niche}, premium positioning, audience ${brand.audience}. Let me clarify three things, then I'll build.`,
-          followups: FOLLOWUPS,
-        },
-      ]);
+    // Append the user turn and an empty AI placeholder we'll stream into.
+    const userMsg: Message = { kind: 'user', text };
+    const aiPlaceholder: Message = { kind: 'ai', text: '', streaming: true };
+    let nextMessages: Message[] = [];
+    setMessages(prev => {
+      nextMessages = [...prev, userMsg, aiPlaceholder];
+      return nextMessages;
+    });
+
+    const apiMessages = toApiMessages([...messages, userMsg]);
+
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    try {
+      const res = await fetch('/api/builder/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok || !res.body) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(detail || `${res.status} ${res.statusText}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let aiText = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line) continue;
+          let event: ChatStreamEvent;
+          try {
+            event = JSON.parse(line) as ChatStreamEvent;
+          } catch {
+            continue;
+          }
+          if (event.type === 'text') {
+            aiText += event.delta;
+            const snapshot = aiText;
+            setMessages(prev => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last && last.kind === 'ai' && last.streaming) {
+                next[next.length - 1] = { ...last, text: snapshot };
+              }
+              return next;
+            });
+          } else if (event.type === 'error') {
+            throw new Error(event.error);
+          }
+        }
+      }
+
+      setMessages(prev => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last && last.kind === 'ai' && last.streaming) {
+          next[next.length - 1] = { ...last, streaming: false };
+        }
+        return next;
+      });
+      setHasReplied(true);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const reason = err instanceof Error ? err.message : 'unknown error';
+      setMessages(prev => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last && last.kind === 'ai' && last.streaming) {
+          next[next.length - 1] = {
+            kind: 'ai',
+            text: `Sorry — I couldn't reach the model (${reason}). Try again, or re-deploy if the API key is missing.`,
+          };
+        }
+        return next;
+      });
+    } finally {
       setBusy(false);
-      setTimeout(() => beginBuild(), 900);
-    }, 800);
+    }
   }
 
   function beginBuild() {
+    if (busy || buildState.status !== 'idle') return;
     setMessages(m => [
       ...m,
       {
         kind: 'ai',
         meta: 'BUILDING · 7 stages',
-        text: 'Picking sensible defaults. Building now — watch the preview update live.',
+        text: 'Building now — watch the preview update live.',
         isBuild: true,
       },
     ]);
@@ -133,6 +230,8 @@ export function BuilderChat({
     setTimeout(tick, 700);
   }
 
+  const showBuildCta = hasReplied && !busy && buildState.status === 'idle';
+
   return (
     <div className="builder-pane">
       <div className="chat-stream" ref={streamRef}>
@@ -145,43 +244,26 @@ export function BuilderChat({
             );
           }
           const isLast = i === messages.length - 1;
+          const isGreeting = i === 0;
+          // Greeting uses the typewriter for that on-load feel; live-streamed
+          // Claude text already arrives one delta at a time, so we render plain.
           return (
             <div key={i} className="msg-ai">
               <div className="ai-avatar">F</div>
               <div className="ai-body">
                 {m.meta && <div className="ai-meta">⊹ {m.meta}</div>}
-                <div>{isLast ? <StreamingText text={m.text} speed={10} /> : m.text}</div>
-
-                {m.followups && (
-                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {m.followups.map((f, fi) => (
-                      <div key={fi} className="tool-card">
-                        <div className="tool-head">
-                          <span style={{ color: 'var(--fg)' }}>?</span> {f.q}
-                        </div>
-                        <div
-                          className="tool-body"
-                          style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
-                        >
-                          {f.a.map((opt, oi) => (
-                            <button
-                              key={oi}
-                              type="button"
-                              className="btn btn-sm"
-                              style={{
-                                borderColor: oi === 0 ? 'var(--accent)' : 'var(--border)',
-                                color: oi === 0 ? 'var(--accent)' : 'var(--fg)',
-                              }}
-                            >
-                              {oi === 0 && '✓ '}
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div style={{ whiteSpace: 'pre-wrap' }}>
+                  {isGreeting && isLast ? (
+                    <StreamingText text={m.text} speed={10} />
+                  ) : (
+                    <>
+                      {m.text}
+                      {m.streaming && (
+                        <span style={{ marginLeft: 1 }}>▍</span>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {m.isBuild && (
                   <div className="tool-card" style={{ marginTop: 10 }}>
@@ -245,7 +327,7 @@ export function BuilderChat({
                   <span />
                   <span />
                 </span>
-                <span>Analyzing prompt · checking 18 reference brands</span>
+                <span>Thinking…</span>
               </div>
             </div>
           </div>
@@ -280,6 +362,33 @@ export function BuilderChat({
         </div>
       )}
 
+      {showBuildCta && (
+        <div className="prompts">
+          <button
+            type="button"
+            className="prompt-chip"
+            style={{
+              borderColor: 'var(--accent)',
+              color: 'var(--accent)',
+              fontWeight: 500,
+            }}
+            onClick={beginBuild}
+          >
+            Build this store →
+          </button>
+          <span
+            style={{
+              fontSize: 11,
+              color: 'var(--fg-4)',
+              alignSelf: 'center',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            (Phase 2C will replace this with a real LLM-driven blueprint.)
+          </span>
+        </div>
+      )}
+
       <div className="composer">
         <div className="composer-input-wrap">
           <textarea
@@ -293,6 +402,7 @@ export function BuilderChat({
               }
             }}
             rows={1}
+            disabled={busy}
           />
           <div className="composer-row">
             <button type="button" className="btn btn-sm btn-ghost">
