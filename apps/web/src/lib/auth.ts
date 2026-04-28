@@ -23,6 +23,9 @@ function workspaceSlugFor(email: string | null | undefined): string {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
   session: { strategy: 'jwt' },
+  // Explicitly trust the host so Auth.js doesn't reject the request when
+  // running behind Vercel's proxy. AUTH_TRUST_HOST=true env also works.
+  trustHost: true,
   pages: {
     signIn: '/login',
   },
