@@ -3,7 +3,6 @@
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
 
 import { db, users, workspaces, workspaceMembers } from '@forge/db';
@@ -80,21 +79,30 @@ export async function signupAction(
     });
   }
 
-  // Sign in via the credentials provider — sets the session cookie.
+  // Sign in via the credentials provider. We let signIn() do the redirect
+  // itself (rather than calling next/navigation's redirect after) — when
+  // signIn returns normally, the Set-Cookie header for the session JWT
+  // doesn't make it to the browser before redirect() throws. Letting signIn
+  // own the redirect ensures the cookie + Location header land in one
+  // response.
   try {
     await signIn('credentials', {
       email,
       password: parsed.data.password,
-      redirect: false,
+      redirectTo: '/app/builder',
     });
   } catch (err) {
     if (err instanceof AuthError) {
-      return { ok: false, error: 'Account created but auto-sign-in failed. Please log in.' };
+      return {
+        ok: false,
+        error: 'Account created but auto-sign-in failed. Please log in.',
+      };
     }
+    // NEXT_REDIRECT errors must bubble up so Next.js handles the redirect.
     throw err;
   }
-
-  redirect('/app/builder');
+  // Unreachable — signIn either redirects or throws.
+  return { ok: true };
 }
 
 export async function loginAction(
@@ -114,7 +122,7 @@ export async function loginAction(
     await signIn('credentials', {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
-      redirect: false,
+      redirectTo: '/app/dashboard',
     });
   } catch (err) {
     if (err instanceof AuthError) {
@@ -122,8 +130,7 @@ export async function loginAction(
     }
     throw err;
   }
-
-  redirect('/app/dashboard');
+  return { ok: true };
 }
 
 // OAuth sign-in via form action. signIn() throws NEXT_REDIRECT internally
