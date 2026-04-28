@@ -1,5 +1,9 @@
-import { PhasePlaceholder } from '@/components/shell/placeholder';
+import { BuilderWorkspace } from '@/components/builder/builder-workspace';
+
+export const metadata = {
+  title: 'AI Builder — Forge',
+};
 
 export default function BuilderPage() {
-  return <PhasePlaceholder label="AI Builder" phase={2} />;
+  return <BuilderWorkspace />;
 }
