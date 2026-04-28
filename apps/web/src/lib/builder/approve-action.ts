@@ -18,7 +18,36 @@ import {
 
 export type ApproveResult = { ok: false; error: string };
 
+// Anything thrown here other than NEXT_REDIRECT is a real bug; we catch and
+// return so the BuilderChat surface shows a useful message instead of the
+// masked production "Server Components render" stack trace.
 export async function approveBlueprint(
+  raw: Blueprint,
+  conversationId?: string,
+): Promise<ApproveResult> {
+  try {
+    return await runApprove(raw, conversationId);
+  } catch (err) {
+    // Re-throw NEXT_REDIRECT so Next handles the navigation. Anything else is
+    // an unexpected server failure — log it (visible in Vercel runtime logs)
+    // and return a clean error to the caller.
+    if (
+      err &&
+      typeof err === 'object' &&
+      'digest' in err &&
+      typeof (err as { digest: unknown }).digest === 'string' &&
+      (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+    ) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error('[approveBlueprint] failed:', message, stack);
+    return { ok: false, error: `Approve failed: ${message}` };
+  }
+}
+
+async function runApprove(
   raw: Blueprint,
   conversationId?: string,
 ): Promise<ApproveResult> {
@@ -30,7 +59,11 @@ export async function approveBlueprint(
 
   const parsed = BlueprintSchema.safeParse(raw);
   if (!parsed.success) {
-    return { ok: false, error: 'Blueprint failed validation on the server.' };
+    const issue = parsed.error.issues[0];
+    return {
+      ok: false,
+      error: `Blueprint failed validation: ${issue?.path.join('.')}: ${issue?.message}`,
+    };
   }
   const blueprint = parsed.data;
 
@@ -77,18 +110,26 @@ export async function approveBlueprint(
     );
   }
 
-  // Link the conversation back to the brand it produced. Verifies the
-  // conversation belongs to this user before mutating.
+  // Best-effort link-back. If the conversation table doesn't exist (Phase 2E
+  // migration not yet applied) or the conversation belongs to someone else,
+  // we still want approval to succeed — log and continue.
   if (conversationId) {
-    await db
-      .update(conversations)
-      .set({ brandId: brand.id, updatedAt: new Date() })
-      .where(
-        and(
-          eq(conversations.id, conversationId),
-          eq(conversations.userId, userId),
-        ),
+    try {
+      await db
+        .update(conversations)
+        .set({ brandId: brand.id, updatedAt: new Date() })
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            eq(conversations.userId, userId),
+          ),
+        );
+    } catch (err) {
+      console.warn(
+        '[approveBlueprint] could not link conversation → brand:',
+        err instanceof Error ? err.message : err,
       );
+    }
   }
 
   redirect(`/app/preview?brand=${brand.id}`);
