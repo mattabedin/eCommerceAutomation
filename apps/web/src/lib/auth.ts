@@ -37,30 +37,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(creds) {
-        // TEMP diagnostic logging — strip once auth is confirmed working.
         const parsed = credentialsSchema.safeParse(creds);
-        if (!parsed.success) {
-          console.log('[auth] authorize: schema parse failed', parsed.error.issues);
-          return null;
-        }
+        if (!parsed.success) return null;
         const { email, password } = parsed.data;
-        let user;
-        try {
-          user = await db.query.users.findFirst({
-            where: eq(users.email, email.toLowerCase()),
-          });
-        } catch (err) {
-          console.error('[auth] authorize: db query failed', err);
-          return null;
-        }
-        console.log('[auth] authorize lookup', {
-          email: email.toLowerCase(),
-          userFound: Boolean(user),
-          hasHash: Boolean(user?.passwordHash),
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, email.toLowerCase()),
         });
         if (!user || !user.passwordHash) return null;
         const ok = await bcrypt.compare(password, user.passwordHash);
-        console.log('[auth] authorize bcrypt result', { ok });
         if (!ok) return null;
         return {
           id: user.id,
@@ -113,12 +97,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
-      // TEMP diagnostic
-      console.log('[auth] jwt callback', {
-        hasUser: Boolean(user),
-        userId: (user as { id?: string } | undefined)?.id,
-        existingTokenId: (token as { id?: string }).id,
-      });
       if (user) token.id = user.id;
       return token;
     },
