@@ -7,7 +7,11 @@
     "build": "pnpm --filter @forge/web build",
     "tokens": "node scripts/build-tokens.mjs",
     "lint": "pnpm --filter @forge/web lint",
-    "typecheck": "pnpm --filter @forge/web typecheck"
+    "typecheck": "pnpm --filter @forge/web typecheck",
+    "db:generate": "pnpm --filter @forge/db generate",
+    "db:migrate": "pnpm --filter @forge/db migrate",
+    "db:push": "pnpm --filter @forge/db push",
+    "db:studio": "pnpm --filter @forge/db studio"
   },
   "packageManager": "pnpm@9.0.0"
 }
