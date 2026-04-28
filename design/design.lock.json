@@ -1,0 +1,88 @@
+{
+  "$schema": "https://forge.dev/schemas/design-lock.v1.json",
+  "version": "1.0.0",
+  "generatedAt": "2026-04-27T00:00:00Z",
+  "product": "Forge — AI Store Builder",
+  "tokens": {
+    "version": "1.0.0",
+    "color": {
+      "light": {
+        "bg": "#fafafa",
+        "surface": "#ffffff",
+        "surface-2": "#f5f5f5",
+        "surface-3": "#ededed",
+        "border": "#e5e5e5",
+        "border-strong": "#d4d4d4",
+        "fg": "#0a0a0a",
+        "fg-2": "#525252",
+        "fg-3": "#737373",
+        "fg-4": "#a3a3a3",
+        "accent": "#6366F1",
+        "accent-soft": "#eef2ff",
+        "accent-hover": "#4f46e5",
+        "accent-fg": "#ffffff",
+        "green": "#16a34a",
+        "green-soft": "#dcfce7",
+        "amber": "#d97706",
+        "rose": "#e11d48"
+      },
+      "dark": {
+        "bg": "#0a0a0a",
+        "surface": "#111111",
+        "surface-2": "#161616",
+        "surface-3": "#1f1f1f",
+        "border": "#232323",
+        "border-strong": "#2e2e2e",
+        "fg": "#fafafa",
+        "fg-2": "#a3a3a3",
+        "fg-3": "#737373",
+        "fg-4": "#525252",
+        "accent-soft": "#1e1b4b"
+      }
+    },
+    "typography": {
+      "font": "'Inter', system-ui, sans-serif",
+      "font-mono": "'JetBrains Mono', ui-monospace, monospace",
+      "font-serif": "'Instrument Serif', Georgia, serif"
+    },
+    "radius": { "sm": "6px", "default": "10px", "lg": "14px" },
+    "spacing": { "base": 4, "scale": [4, 6, 8, 10, 12, 14, 16, 20, 22, 24, 32, 40, 48] },
+    "shadow": {
+      "sm": "0 1px 2px rgba(0,0,0,0.04)",
+      "default": "0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04)",
+      "lg": "0 4px 12px rgba(0,0,0,0.06), 0 24px 48px -12px rgba(0,0,0,0.10)"
+    }
+  },
+  "components": {
+    "panel":          { "version": "1.0.0", "file": "styles.css" },
+    "btn":            { "version": "1.0.0", "file": "styles.css", "variants": ["primary", "accent", "ghost", "sm"] },
+    "status-pill":    { "version": "1.0.0", "file": "styles.css", "tones": ["green", "amber", "rose", "gray", "indigo"] },
+    "kpi-card":       { "version": "1.0.0", "file": "styles.css" },
+    "tabs":           { "version": "1.0.0", "file": "styles.css" },
+    "table":          { "version": "1.0.0", "file": "styles.css" },
+    "approval-banner":{ "version": "1.0.0", "file": "styles.css" },
+    "loader-dot":     { "version": "1.0.0", "file": "styles.css" },
+    "asset-tile":     { "version": "1.0.0", "file": "styles.css" }
+  },
+  "modules": {
+    "shell":      { "version": "1.0.0", "file": "shell.jsx",      "exports": ["FORGE_SHELL"] },
+    "builder":    { "version": "1.0.0", "file": "builder.jsx",    "exports": ["FORGE_BUILDER"] },
+    "preview":    { "version": "1.0.0", "file": "preview.jsx",    "exports": ["FORGE_PREVIEW"] },
+    "views":      { "version": "1.0.0", "file": "views.jsx",      "exports": ["FORGE_VIEWS"] },
+    "publishing": { "version": "1.0.0", "file": "publishing.jsx", "exports": ["FORGE_PUBLISHING"] }
+  },
+  "routes": [
+    { "id": "builder",    "label": "AI Builder",          "section": "Build" },
+    { "id": "preview",    "label": "Storefront",          "section": "Build" },
+    { "id": "publishing", "label": "Publishing & Hosting","section": "Build" },
+    { "id": "dashboard",  "label": "Dashboard",           "section": "Run" },
+    { "id": "products",   "label": "Products",            "section": "Run" },
+    { "id": "orders",     "label": "Orders",              "section": "Run" },
+    { "id": "customers",  "label": "Customers",           "section": "Run" },
+    { "id": "marketing",  "label": "Marketing",           "section": "Run" },
+    { "id": "support",    "label": "Support",             "section": "Run" },
+    { "id": "analytics",  "label": "Analytics",           "section": "Run" },
+    { "id": "settings",   "label": "Settings",            "section": "Account" },
+    { "id": "billing",    "label": "Billing",             "section": "Account" }
+  ]
+}

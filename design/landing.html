@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Forge — The AI that runs your store while you sleep</title>
+  <link rel="stylesheet" href="marketing.css?v=4"/>
+</head>
+<body>
+
+<!-- ANNOUNCEMENT BAR -->
+<div class="announce">
+  <span class="announce-pulse">Forge 0.4 · live</span>
+  <span style="opacity:0.7;">·</span>
+  <span>1,400+ AI-built stores · <strong>$0 transaction fees, forever</strong></span>
+  <span style="opacity:0.7;">·</span>
+  <a href="Forge.html">Try it free →</a>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="landing.html" class="logo">
+      <span class="logo-mark">F</span>
+      <span>Forge</span>
+    </a>
+    <div class="nav-links">
+      <a href="landing.html" data-active="true">Product</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="about.html">About</a>
+      <a href="landing.html#agents">Agents</a>
+      <a href="landing.html#customers">Customers</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="Forge.html">Sign in</a>
+      <a class="btn btn-primary btn-glow" href="Forge.html">Start free →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-mesh"></div>
+  <div class="hero-inner">
+    <span class="eyebrow"><span class="dot"></span> Backed by Index, Spark, a16z · $28M raised</span>
+    <h1 class="display">
+      The AI that runs your store<br/>
+      <em><span class="grad">while you sleep.</span></em>
+    </h1>
+    <p class="lead" style="margin-left: auto; margin-right: auto;">
+      Forge replaces Shopify, Klaviyo, Gorgias, and seven more tools with one platform — where AI agents handle pricing, support, marketing, and inventory automatically. <strong style="color:var(--fg);">You approve. Forge does the work.</strong>
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary btn-lg btn-glow" href="Forge.html">Build my store free →</a>
+      <a class="btn btn-lg" href="#demo">▶ Watch 90-second demo</a>
+    </div>
+
+    <!-- inline prompt → builder -->
+    <form class="prompt-card" onsubmit="event.preventDefault(); window.location.href='Forge.html';">
+      <div class="ic">⊹</div>
+      <input type="text" placeholder="Describe your store… ‘luxury pet accessories for urban dog owners’" />
+      <button class="btn btn-primary btn-sm" type="submit">Generate →</button>
+      <span class="kbd">⏎</span>
+    </form>
+
+    <div class="hero-trust">
+      <span><span class="check">✓</span> Free to build</span>
+      <span><span class="check">✓</span> Live in under 5 min</span>
+      <span><span class="check">✓</span> No credit card</span>
+      <span><span class="check">✓</span> 0% txn fees</span>
+      <span><span class="check">✓</span> SOC 2</span>
+    </div>
+  </div>
+
+  <!-- product mock with floating agent badges -->
+  <div class="hero-mock" id="demo">
+    <div class="hero-mock-chrome">
+      <div class="hero-mock-dots"><span></span><span></span><span></span></div>
+      <div class="hero-mock-addr">forge.shop / build</div>
+    </div>
+    <div class="hero-mock-body">
+      <div class="hero-mock-chat">
+        <div class="mock-bubble-user">Build me a store selling luxury pet accessories.</div>
+        <div class="mock-bubble-ai">
+          <div class="meta">⊹ FORGE · v0.4</div>
+          Got it — premium pet accessories, urban audience. Building now.
+        </div>
+        <div class="mock-stages">
+          <div class="ok">✓ Niche analyzed · 18 references</div>
+          <div class="ok">✓ Brand · PawLuxe Co.</div>
+          <div class="ok">✓ Pages · home, FAQ, policies</div>
+          <div class="running">Drafting catalog · 8 products</div>
+          <div class="queued">· Pricing model</div>
+          <div class="queued">· SEO · meta, schema</div>
+          <div class="queued">· Preview ready</div>
+        </div>
+        <div class="mock-bubble-ai">
+          <div class="meta">PREVIEW · live</div>
+          PawLuxe Co. is taking shape →
+        </div>
+      </div>
+      <div class="hero-mock-preview">
+        <div class="mock-store-nav">
+          <div class="mock-store-logo">PawLuxe Co.</div>
+          <div style="display:flex;gap:14px;font-size:10px;">
+            <span>Collars</span><span>Leashes</span><span>Beds</span><span>Travel</span>
+          </div>
+          <div style="font-size:10px;">Bag (0)</div>
+        </div>
+        <div class="mock-store-hero">
+          <div>
+            <h3>Heirloom essentials for the modern <em>dog.</em></h3>
+            <p>Hand-finished collars, leashes, and beds — built to last lifetimes.</p>
+            <button class="btn" style="background:#111827;color:white;border-color:#111827;font-size:10px;padding:5px 10px;">Shop the collection →</button>
+          </div>
+          <div class="mock-store-hero-img"></div>
+        </div>
+        <div class="mock-store-grid">
+          <div class="mock-prod" style="background:linear-gradient(135deg,#d4af37 30%,#a47148);"></div>
+          <div class="mock-prod" style="background:linear-gradient(135deg,#b08968 30%,#8b6f47);"></div>
+          <div class="mock-prod" style="background:linear-gradient(135deg,#e8dcc4 30%,#c9b89a);"></div>
+          <div class="mock-prod" style="background:linear-gradient(135deg,#a47148 30%,#6f4e2a);"></div>
+        </div>
+
+        <!-- floating agent activity badges -->
+        <div class="agent-pop agent-pop-1"><span class="dot"></span>⊹ Pricing · +6% applied</div>
+        <div class="agent-pop agent-pop-2"><span class="dot"></span>◐ Support · 3 tickets resolved</div>
+        <div class="agent-pop agent-pop-3"><span class="dot"></span>✦ SEO · 12 pages indexed</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS marquee -->
+<section class="logos">
+  <div class="logos-label">Powering 1,400+ AI-built brands</div>
+  <div class="logos-fade">
+    <div class="logos-marquee">
+      <span>PawLuxe Co.</span><span>DeskNova</span><span>North Atelier</span>
+      <span>Common Press</span><span>Field & Vine</span><span>Salt Studio</span>
+      <span>Verdant House</span><span>Harbor & Co.</span><span>Lumen Goods</span>
+      <span>Marlow</span>
+      <!-- duplicate for seamless loop -->
+      <span>PawLuxe Co.</span><span>DeskNova</span><span>North Atelier</span>
+      <span>Common Press</span><span>Field & Vine</span><span>Salt Studio</span>
+      <span>Verdant House</span><span>Harbor & Co.</span><span>Lumen Goods</span>
+      <span>Marlow</span>
+    </div>
+  </div>
+</section>
+
+<!-- STATS — moved up for conversion proof -->
+<section class="band" style="padding-top: 60px; padding-bottom: 60px; border-top: none;">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">4m 12s</div>
+      <div class="stat-label">Median time to first<br/>store live</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">78%</div>
+      <div class="stat-label">Tickets auto-resolved<br/>by AI agents</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">3.4×</div>
+      <div class="stat-label">Avg conversion vs<br/>Shopify default</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">$0</div>
+      <div class="stat-label">Forge transaction fees<br/>on every plan</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM / PROMISE -->
+<section class="band">
+  <div class="band-header">
+    <div class="kicker">⊹ The Forge difference</div>
+    <h2 class="section-title">Other platforms hand you tools.<br/><em>Forge runs the store.</em></h2>
+  </div>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr; max-width: 1000px;">
+    <div class="feature-card" style="background: var(--surface-2);">
+      <div class="kicker" style="color: var(--fg-3);">Shopify, WooCommerce, Wix</div>
+      <h3 style="font-size: 19px; margin-bottom: 14px;">You assemble the store.</h3>
+      <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13.5px; color: var(--fg-3);">
+        <li>· Pick a theme, edit it for weeks</li>
+        <li>· Hunt apps for every feature</li>
+        <li>· Write copy, take photos, set prices</li>
+        <li>· Handle support, marketing, fulfillment alone</li>
+        <li>· Pay 8–12 monthly subscriptions</li>
+        <li>· 1.6%+ in transaction fees</li>
+      </ul>
+    </div>
+    <div class="feature-card" style="border-color: var(--accent); background: linear-gradient(180deg, var(--surface), var(--accent-soft));">
+      <div class="kicker" style="color: var(--accent);">⊹ Forge</div>
+      <h3 style="font-size: 19px; margin-bottom: 14px;">AI runs the store. You decide.</h3>
+      <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13.5px; color: var(--fg-2);">
+        <li><span style="color: var(--green);">✓</span> Describe it · brand built in 4 minutes</li>
+        <li><span style="color: var(--green);">✓</span> Catalog, copy, prices generated + tuned weekly</li>
+        <li><span style="color: var(--green);">✓</span> Agents run support, email, ads, inventory</li>
+        <li><span style="color: var(--green);">✓</span> Approve in one click · roll back any change</li>
+        <li><span style="color: var(--green);">✓</span> One platform · one bill · 0% txn fees</li>
+        <li><span style="color: var(--green);">✓</span> Ship in minutes, not months</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS — 3 steps -->
+<section class="band">
+  <div class="band-header">
+    <div class="kicker">⊹ How it works</div>
+    <h2 class="section-title">Three steps from idea to revenue.</h2>
+    <p class="lead" style="margin: 18px auto 0; font-size: 16px;">No code. No theme tweaking. No app stack. Just describe your business — and approve as Forge builds and runs it.</p>
+  </div>
+  <div class="howit">
+    <div class="howit-step">
+      <div class="howit-num">1</div>
+      <h3>Describe what you sell</h3>
+      <p>One sentence is enough. Forge picks the niche, audience, and aesthetic — then asks two follow-ups to lock the brief.</p>
+      <div class="visual">
+        <span style="color:var(--fg-4);">prompt ›</span><br/>
+        <span style="color:var(--fg);">"Heirloom collars and leashes</span><br/>
+        <span style="color:var(--fg);">for urban dog owners."</span>
+      </div>
+    </div>
+    <div class="howit-step">
+      <div class="howit-num">2</div>
+      <h3>Forge builds the entire store</h3>
+      <p>Brand, theme, 8+ products, copy, photography prompts, pricing, policies, SEO schema. All generated together in 4 minutes.</p>
+      <div class="visual">
+        <span style="color:var(--green);">✓ brand · PawLuxe Co.</span><br/>
+        <span style="color:var(--green);">✓ catalog · 8 products</span><br/>
+        <span style="color:var(--accent);">○ pricing model · running</span>
+      </div>
+    </div>
+    <div class="howit-step">
+      <div class="howit-num">3</div>
+      <h3>Agents run it for you</h3>
+      <p>Five AI teammates handle pricing, support, marketing, SEO, and inventory. You set guardrails and approve the moves that matter.</p>
+      <div class="visual">
+        <span style="color:var(--accent);">⊹ Pricing</span> <span style="color:var(--fg-3);">+6% Cloud Bed</span><br/>
+        <span style="color:var(--accent);">◐ Support</span> <span style="color:var(--fg-3);">4 auto-resolved</span><br/>
+        <span style="color:var(--accent);">✦ SEO</span> <span style="color:var(--fg-3);">3 pages drafted</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AGENTS — meet your team -->
+<section class="agents-band" id="agents">
+  <div class="band-header">
+    <div class="kicker">⊹ Meet your AI team</div>
+    <h2 class="section-title">Five teammates.<br/><em>One always-on storefront.</em></h2>
+    <p class="lead" style="margin: 18px auto 0; font-size: 16px;">Each agent has a name, a role, and a track record. They show their math, wait for approval where it matters, and log every move to an audit trail you can roll back.</p>
+  </div>
+  <div class="agents-grid">
+    <div class="agent-card" style="--card-color:#6366F1; --card-soft:#eef2ff;">
+      <div class="agent-avatar">P</div>
+      <div class="agent-name">Pria</div>
+      <div class="agent-role">Pricing</div>
+      <p>Models demand and competitor anchors. Adjusts weekly and shows the math behind every move.</p>
+      <div class="agent-status"><span class="pulse"></span>Live · +$340/wk avg lift</div>
+    </div>
+    <div class="agent-card" style="--card-color:#16a34a; --card-soft:#dcfce7;">
+      <div class="agent-avatar">S</div>
+      <div class="agent-name">Soren</div>
+      <div class="agent-role">Support</div>
+      <p>Auto-resolves 78% of tickets in under 90 seconds. Cites your policies. Escalates the rest.</p>
+      <div class="agent-status"><span class="pulse"></span>Live · 94% confidence</div>
+    </div>
+    <div class="agent-card" style="--card-color:#a855f7; --card-soft:#f3e8ff;">
+      <div class="agent-avatar">M</div>
+      <div class="agent-name">Maren</div>
+      <div class="agent-role">Marketing</div>
+      <p>Writes campaigns, segments lists, schedules sends. Predicts open rate and revenue per email.</p>
+      <div class="agent-status"><span class="pulse"></span>Live · 42% avg open</div>
+    </div>
+    <div class="agent-card" style="--card-color:#d97706; --card-soft:#fef3c7;">
+      <div class="agent-avatar">O</div>
+      <div class="agent-name">Otto</div>
+      <div class="agent-role">SEO</div>
+      <p>Drafts product pages, meta tags, schema, and blog content tuned to keywords that actually convert.</p>
+      <div class="agent-status"><span class="pulse"></span>Live · 12 pages indexed</div>
+    </div>
+    <div class="agent-card" style="--card-color:#e11d48; --card-soft:#ffe4e6;">
+      <div class="agent-avatar">I</div>
+      <div class="agent-name">Iris</div>
+      <div class="agent-role">Inventory</div>
+      <p>Tracks velocity, lead times, and seasonality. Drafts purchase orders to suppliers before stockouts.</p>
+      <div class="agent-status"><span class="pulse"></span>Live · 2 PO drafts ready</div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTONOMY — while you sleep -->
+<section class="autonomy">
+  <div class="band-header">
+    <div class="kicker">⊹ Last night, on Forge</div>
+    <h2 class="section-title">What Forge did<br/><em>while you slept.</em></h2>
+    <p class="autonomy-lead">A real night on a real Forge store. Agents shipped, customers got served, money got made — and you wake up to a one-screen summary.</p>
+  </div>
+  <div class="autonomy-feed">
+    <div class="autonomy-feed-head">
+      <span>PawLuxe Co. · activity feed · last 8 hours</span>
+      <span class="live-dot">live</span>
+    </div>
+    <div class="autonomy-feed-list">
+      <div class="autonomy-row">
+        <div class="autonomy-time">11:42 PM</div>
+        <div class="autonomy-icon">P</div>
+        <div class="autonomy-msg"><strong>Pria · re-priced Cloud Bed +6%</strong><span class="sub">demand model: +$340/wk · competitor anchor: $129</span></div>
+        <div class="autonomy-status done">applied</div>
+      </div>
+      <div class="autonomy-row">
+        <div class="autonomy-time">12:18 AM</div>
+        <div class="autonomy-icon">S</div>
+        <div class="autonomy-msg"><strong>Soren · resolved 7 support tickets</strong><span class="sub">avg response 38s · 6 cited the return policy · 1 escalated</span></div>
+        <div class="autonomy-status done">resolved</div>
+      </div>
+      <div class="autonomy-row">
+        <div class="autonomy-time">2:04 AM</div>
+        <div class="autonomy-icon">M</div>
+        <div class="autonomy-msg"><strong>Maren · drafted "Father's Day" campaign</strong><span class="sub">subject: For dogs that deserve heirlooms · predicted +$1,200 revenue</span></div>
+        <div class="autonomy-status review">awaiting review</div>
+      </div>
+      <div class="autonomy-row">
+        <div class="autonomy-time">3:31 AM</div>
+        <div class="autonomy-icon">O</div>
+        <div class="autonomy-msg"><strong>Otto · published 3 SEO pages</strong><span class="sub">heirloom collar · brass leash · cloud bed · indexed in 22 min</span></div>
+        <div class="autonomy-status done">live</div>
+      </div>
+      <div class="autonomy-row">
+        <div class="autonomy-time">5:09 AM</div>
+        <div class="autonomy-icon">I</div>
+        <div class="autonomy-msg"><strong>Iris · drafted purchase order</strong><span class="sub">Cloud Bed velocity ↑ 22% · supplier lead 14 days · 80 units</span></div>
+        <div class="autonomy-status review">awaiting review</div>
+      </div>
+      <div class="autonomy-row">
+        <div class="autonomy-time">6:47 AM</div>
+        <div class="autonomy-icon">P</div>
+        <div class="autonomy-msg"><strong>Pria · weekend bundle live</strong><span class="sub">Collar + Leash · 12% off · forecast +$890 · expires Sun 11pm</span></div>
+        <div class="autonomy-status live">live</div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align: center; margin-top: 40px; position: relative;">
+    <a href="Forge.html" class="btn btn-lg" style="background: white; color: #0a0a0a; border: none;">See your activity feed →</a>
+  </div>
+</section>
+
+<!-- BENTO FEATURES -->
+<section class="band">
+  <div class="band-header">
+    <div class="kicker">⊹ Inside the platform</div>
+    <h2 class="section-title">Everything a brand needs.<br/><em>Nothing it doesn't.</em></h2>
+  </div>
+  <div class="bento">
+    <div class="bento-card b-tall" style="background: linear-gradient(160deg, var(--surface), var(--accent-soft));">
+      <span class="tag">⊹ BUILDER</span>
+      <h3>One prompt, full storefront</h3>
+      <p>Brand, theme, pages, policies, products, prices — generated together, designed to fit, ready to publish.</p>
+      <div style="position:absolute;bottom:24px;left:24px;right:24px;font-family:var(--font-mono);font-size:11px;color:var(--fg-3);line-height:1.6;background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:12px 14px;">
+        <div style="color:var(--accent);">⊹ blueprint.json</div>
+        <div>"name": <span style="color:var(--green);">"PawLuxe Co."</span></div>
+        <div>"products": <span style="color:var(--amber);">8</span>,</div>
+        <div>"pages": <span style="color:var(--amber);">12</span>,</div>
+        <div>"setup": <span style="color:var(--green);">"4m 12s"</span></div>
+      </div>
+    </div>
+
+    <div class="bento-card b-wide">
+      <span class="tag">⊹ PRICING AGENT</span>
+      <h3>Prices that price themselves</h3>
+      <p>Forge models demand and competitor anchors. Adjusts weekly. Shows its math.</p>
+      <div style="display:flex;gap:6px;margin-top:14px;">
+        <div style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:11px;"><div style="color:var(--fg-3);font-size:10px;">COGS</div><strong style="font-size:16px;">$22</strong></div>
+        <div style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:11px;"><div style="color:var(--fg-3);font-size:10px;">+ MARGIN</div><strong style="font-size:16px;">$67</strong></div>
+        <div style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:11px;"><div style="color:var(--fg-3);font-size:10px;">ANCHOR</div><strong style="font-size:16px;">$129</strong></div>
+        <div style="flex:1;padding:10px;border:1px solid var(--accent);border-radius:8px;font-size:11px;background:var(--accent-soft);"><div style="color:var(--accent);font-size:10px;">⊹ AI TIER</div><strong style="font-size:16px;color:var(--accent);">$89</strong></div>
+      </div>
+    </div>
+
+    <div class="bento-card b-sq">
+      <span class="tag">⊹ SUPPORT</span>
+      <h3>Replies in 90 seconds</h3>
+      <p>Auto-resolves 78% of tickets. Drafts the rest. Cites your policies.</p>
+      <div style="margin-top:14px;font-size:11px;background:var(--accent-soft);color:var(--accent);padding:6px 10px;border-radius:8px;display:inline-block;">88% confidence · awaiting send</div>
+    </div>
+
+    <div class="bento-card b-sq">
+      <span class="tag">⊹ INVENTORY</span>
+      <h3>Reorders before you notice</h3>
+      <p>Tracks velocity, lead times, and seasonality. Pings supplier when stock dips.</p>
+      <div style="margin-top:12px;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;"><div style="width:18%;height:100%;background:var(--rose);"></div></div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--rose);margin-top:6px;">Cloud Bed · 8 units · ~5 days</div>
+    </div>
+
+    <div class="bento-card b-half">
+      <span class="tag">⊹ MARKETING</span>
+      <h3>Campaigns, drafted</h3>
+      <p>Forge writes, designs, segments, and schedules — you approve in one click.</p>
+      <div style="margin-top:14px;background:var(--surface-2);padding:10px 12px;border-radius:8px;font-size:11.5px;line-height:1.5;">
+        <div style="color:var(--fg-3);font-size:10px;font-family:var(--font-mono);">EMAIL · subject</div>
+        <div style="font-family:var(--font-serif);font-size:14px;">For dogs that deserve heirlooms.</div>
+        <div style="color:var(--fg-3);">Predicted open: <strong style="color:var(--fg);">42%</strong> · revenue $1,200 ± $200</div>
+      </div>
+    </div>
+
+    <div class="bento-card b-half">
+      <span class="tag">⊹ ANALYTICS</span>
+      <h3>Insights, not dashboards</h3>
+      <p>Forge tells you what changed and what to do — in plain English, with the math behind it.</p>
+      <div style="margin-top:14px;border-left:3px solid var(--green);padding-left:10px;font-size:12px;line-height:1.5;">
+        <strong>Instagram converts 2.8×</strong>
+        <div style="color:var(--fg-3);font-size:11px;">+$1,200/wk if you reallocate $400 from Google.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="band" id="customers">
+  <div class="band-header">
+    <div class="kicker">⊹ From the brands using Forge</div>
+    <h2 class="section-title">"It's like having ten<br/>employees on day one."</h2>
+  </div>
+  <div class="testimonials">
+    <div class="testi">
+      <p class="testi-quote">"I described my idea on Tuesday. Friday morning we shipped our first order. Forge wrote everything — the brand, copy, FAQ. I just approved."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background: linear-gradient(135deg, #6366F1, #8b5cf6);">M</div>
+        <div>
+          <div class="testi-name">Maya Chen</div>
+          <div class="testi-role">Founder, PawLuxe Co.</div>
+        </div>
+      </div>
+      <span class="testi-metric">↑ Live in 4 days</span>
+    </div>
+    <div class="testi">
+      <p class="testi-quote">"The pricing agent paid for the platform in week two. I wasn't going to charge $89 for that collar. Forge ran the math, showed the demand curve, and I trusted it."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background: linear-gradient(135deg, #16a34a, #22C55E);">J</div>
+        <div>
+          <div class="testi-name">Jordan Kettering</div>
+          <div class="testi-role">Operator, DeskNova</div>
+        </div>
+      </div>
+      <span class="testi-metric">↑ +$2,800 / mo</span>
+    </div>
+    <div class="testi">
+      <p class="testi-quote">"We replaced Shopify, Klaviyo, Gorgias, and Recharge. One bill, one inbox. Our team went from drowning to actually running the brand."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background: linear-gradient(135deg, #d97706, #f59e0b);">S</div>
+        <div>
+          <div class="testi-name">Sara Levin</div>
+          <div class="testi-role">CEO, North Atelier</div>
+        </div>
+      </div>
+      <span class="testi-metric">↓ Saved $903 / mo</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="band">
+  <div class="cta-section">
+    <div class="kicker" style="color:#a5b4fc;position:relative;display:inline-block;margin-bottom:12px;">⊹ Free to start · live tonight</div>
+    <h2>Your store, <em>built tonight.</em></h2>
+    <p>Free to build. No credit card. Live in under 5 minutes — with five AI teammates already running it.</p>
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+      <a class="btn btn-primary btn-lg" href="Forge.html">Start building →</a>
+      <a class="btn btn-lg" href="pricing.html" style="background: transparent; color: white; border-color: rgba(255,255,255,0.2);">See pricing</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="logo-mark">F</span><span>Forge</span></div>
+      <p>The first AI commerce platform that builds, prices, and runs your store for you.</p>
+      <div style="display:flex;gap:8px;">
+        <span class="tag">SOC 2</span>
+        <span class="tag">PCI Level 1</span>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="landing.html#agents">Agents</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="Forge.html">Builder</a>
+      <a href="Forge.html">Dashboard</a>
+      <a href="#">Changelog</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="about.html">About</a>
+      <a href="#">Customers</a>
+      <a href="#">Careers</a>
+      <a href="#">Press</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <a href="#">Docs</a>
+      <a href="#">API</a>
+      <a href="#">Status</a>
+      <a href="#">Security</a>
+      <a href="#">Privacy</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Forge Commerce, Inc.</span>
+    <span>San Francisco · Built with care</span>
+  </div>
+</footer>
+
+</body>
+</html>
