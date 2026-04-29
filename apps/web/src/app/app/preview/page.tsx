@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { eq, desc, asc, and, inArray } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
@@ -9,10 +10,17 @@ import {
 } from '@forge/db';
 import { PhasePlaceholder } from '@/components/shell/placeholder';
 import { SavedStorefront } from '@/components/preview/saved-storefront';
+import { BrandEditor } from '@/components/preview/brand-editor';
+import {
+  BlueprintSchema,
+  type Blueprint,
+} from '@/lib/builder/blueprint-schema';
 
 export const metadata = {
   title: 'Storefront preview — Forge',
 };
+
+export const dynamic = 'force-dynamic';
 
 type PageProps = {
   searchParams?: { brand?: string };
@@ -21,8 +29,6 @@ type PageProps = {
 export default async function PreviewPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user?.id) {
-    // Middleware already enforces auth for /app/*; this is a defence-in-depth
-    // belt for direct rendering.
     return <PhasePlaceholder label="Storefront" phase={2} />;
   }
 
@@ -30,9 +36,7 @@ export default async function PreviewPage({ searchParams }: PageProps) {
     where: eq(workspaceMembers.userId, session.user.id),
   });
   const workspaceIds = memberships.map(m => m.workspaceId);
-  if (workspaceIds.length === 0) {
-    return <EmptyState />;
-  }
+  if (workspaceIds.length === 0) return <EmptyState />;
 
   const brand = searchParams?.brand
     ? await db.query.brands.findFirst({
@@ -46,16 +50,73 @@ export default async function PreviewPage({ searchParams }: PageProps) {
         orderBy: [desc(brands.createdAt)],
       });
 
-  if (!brand) {
-    return <EmptyState />;
-  }
+  if (!brand) return <EmptyState />;
 
   const productRows = await db.query.products.findMany({
     where: eq(productsTable.brandId, brand.id),
     orderBy: [asc(productsTable.position)],
   });
 
-  return <SavedStorefront brand={brand} products={productRows} />;
+  // Pull editable fields out of the identity blob (with safe fallbacks).
+  const parsed = BlueprintSchema.safeParse(brand.identity);
+  const identity: Partial<Blueprint> =
+    (parsed.success
+      ? parsed.data
+      : (brand.identity as Partial<Blueprint> | null)) ?? {};
+
+  const editorInitial = {
+    name: brand.name,
+    tagline: identity.tagline ?? '',
+    domain: brand.domain ?? `${brand.slug}.forge.shop`,
+    hero_headline: identity.hero_headline ?? '',
+    hero_subhead: identity.hero_subhead ?? '',
+    primary: identity.colors?.primary ?? '#0a0a0a',
+    secondary: identity.colors?.secondary ?? '#6366F1',
+    accent: identity.colors?.accent ?? '#fafafa',
+  };
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto' }}>
+      <div
+        style={{
+          padding: '12px 24px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 500 }}>{brand.name}</span>
+        <span
+          className="status-pill"
+          data-tone={brand.publishedAt ? 'green' : 'amber'}
+        >
+          {brand.publishedAt ? 'live' : 'draft'}
+        </span>
+        <code
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11.5,
+            color: 'var(--fg-3)',
+          }}
+        >
+          {brand.domain ?? `${brand.slug}.forge.shop`}
+        </code>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <Link
+            href={`/app/products?brand=${brand.id}`}
+            className="btn btn-sm btn-ghost"
+          >
+            Manage products
+          </Link>
+          <BrandEditor brandId={brand.id} initial={editorInitial} />
+        </div>
+      </div>
+
+      <SavedStorefront brand={brand} products={productRows} />
+    </div>
+  );
 }
 
 function EmptyState() {

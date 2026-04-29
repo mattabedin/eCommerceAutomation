@@ -56,41 +56,9 @@ export function SavedStorefront({
   const heroLast = heroParts.slice(-1).join(' ');
   const heroLead = heroParts.slice(0, -1).join(' ');
 
-  const domain = brand.domain ?? `${brand.slug}.forge.shop`;
 
   return (
-    <div className="view-pad" style={{ padding: 0, overflow: 'auto' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px 24px',
-          gap: 12,
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
-        }}
-      >
-        <span className="loader-dot" style={{ background: brand.publishedAt ? 'var(--green)' : 'var(--amber)' }} />
-        <span style={{ fontSize: 13, fontWeight: 500 }}>{brand.name}</span>
-        <span
-          className="status-pill"
-          data-tone={brand.publishedAt ? 'green' : 'amber'}
-          style={{ marginLeft: 4 }}
-        >
-          {brand.publishedAt ? 'live' : 'draft'}
-        </span>
-        <code
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11.5,
-            color: 'var(--fg-3)',
-            marginLeft: 'auto',
-          }}
-        >
-          {domain}
-        </code>
-      </div>
-
+    <div style={{ padding: 0 }}>
       <div className="store" style={{ background: 'var(--surface)' }}>
         <nav className="store-nav">
           <div className="store-logo" style={{ color: colors.primary }}>
