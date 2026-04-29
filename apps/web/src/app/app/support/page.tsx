@@ -1,9 +1,17 @@
 import Link from 'next/link';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, asc } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
-import { db, brands, workspaceMembers } from '@forge/db';
-import { mockTickets } from '@/lib/mock-runtime';
+import {
+  brands,
+  customers,
+  db,
+  ticketMessages,
+  tickets as ticketsTable,
+  workspaceMembers,
+} from '@forge/db';
+import { TicketsManager } from '@/components/support/tickets-manager';
+import { SeedDemoDataButton } from '@/components/runtime/seed-demo-data-button';
 
 export const metadata = {
   title: 'Support — Forge',
@@ -37,10 +45,46 @@ export default async function SupportPage({ searchParams }: PageProps) {
     ? allBrands.find(b => b.id === searchParams.brand) ?? allBrands[0]!
     : allBrands[0]!;
 
-  const tickets = mockTickets(activeBrand.id, 8);
-  const autoResolved = tickets.filter(t => t.status === 'auto-resolved').length;
-  const needsAdmin = tickets.filter(t => t.status === 'needs admin').length;
-  const awaiting = tickets.filter(t => t.status === 'awaiting reply').length;
+  const [ticketRows, customerRows] = await Promise.all([
+    db.query.tickets.findMany({
+      where: eq(ticketsTable.brandId, activeBrand.id),
+      orderBy: [desc(ticketsTable.updatedAt)],
+    }),
+    db.query.customers.findMany({
+      where: eq(customers.brandId, activeBrand.id),
+    }),
+  ]);
+
+  const customerById = new Map(customerRows.map(c => [c.id, c]));
+
+  const messageRows = ticketRows.length
+    ? await db.query.ticketMessages.findMany({
+        where: inArray(
+          ticketMessages.ticketId,
+          ticketRows.map(t => t.id),
+        ),
+        orderBy: [asc(ticketMessages.createdAt)],
+      })
+    : [];
+
+  const messagesByTicket = new Map<
+    string,
+    { id: string; sender: 'customer' | 'operator' | 'agent'; body: string; createdAt: string }[]
+  >();
+  for (const m of messageRows) {
+    const list = messagesByTicket.get(m.ticketId) ?? [];
+    list.push({
+      id: m.id,
+      sender: m.sender as 'customer' | 'operator' | 'agent',
+      body: m.body,
+      createdAt: m.createdAt.toISOString(),
+    });
+    messagesByTicket.set(m.ticketId, list);
+  }
+
+  const autoResolved = ticketRows.filter(t => t.status === 'resolved').length;
+  const awaiting = ticketRows.filter(t => t.status === 'awaiting').length;
+  const open = ticketRows.filter(t => t.status === 'open').length;
 
   return (
     <div className="view-pad">
@@ -48,13 +92,13 @@ export default async function SupportPage({ searchParams }: PageProps) {
         <div>
           <h1>Support</h1>
           <div className="desc">
-            {tickets.length} tickets · {autoResolved} auto-resolved by Soren ·{' '}
+            {ticketRows.length} tickets · {autoResolved} resolved ·{' '}
             <strong>{activeBrand.name}</strong>
           </div>
         </div>
-        <span style={{ fontSize: 11, color: 'var(--fg-4)', fontFamily: 'var(--font-mono)' }}>
-          mock · the Soren agent ships in Phase 7
-        </span>
+        {ticketRows.length === 0 && (
+          <SeedDemoDataButton brandId={activeBrand.id} label="Seed sample data" />
+        )}
       </div>
 
       {allBrands.length > 1 && (
@@ -72,65 +116,43 @@ export default async function SupportPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <div className="dash-grid">
-        <Kpi label="Tickets" value={String(tickets.length)} />
-        <Kpi label="Auto-resolved" value={String(autoResolved)} />
-        <Kpi label="Awaiting" value={String(awaiting)} />
-        <Kpi label="Needs admin" value={String(needsAdmin)} />
-      </div>
+      {ticketRows.length > 0 ? (
+        <>
+          <div className="dash-grid">
+            <Kpi label="Tickets" value={String(ticketRows.length)} />
+            <Kpi label="Open" value={String(open)} />
+            <Kpi label="Awaiting" value={String(awaiting)} />
+            <Kpi label="Resolved" value={String(autoResolved)} />
+          </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <div className="panel-title">Open tickets</div>
-          <div className="panel-sub">Sorted by recency</div>
+          <TicketsManager
+            tickets={ticketRows.map(t => ({
+              id: t.id,
+              subject: t.subject,
+              customer: customerById.get(t.customerId ?? '')?.name ?? 'Guest',
+              email: customerById.get(t.customerId ?? '')?.email ?? '',
+              status: t.status,
+              aiConfidence: t.aiConfidence,
+              updatedAt: t.updatedAt.toISOString(),
+              messages: messagesByTicket.get(t.id) ?? [],
+            }))}
+          />
+        </>
+      ) : (
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">Inbox is empty</div>
+            <div className="panel-sub">No tickets yet</div>
+          </div>
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 12 }}>
+              Sample tickets let you try the reply + resolve flow before real
+              customers start writing in.
+            </div>
+            <SeedDemoDataButton brandId={activeBrand.id} label="Seed sample data →" />
+          </div>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Subject</th>
-              <th>Customer</th>
-              <th>AI confidence</th>
-              <th>Status</th>
-              <th>Age</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tickets.map(t => (
-              <tr key={t.id}>
-                <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-3)' }}>
-                  {t.id}
-                </td>
-                <td style={{ fontWeight: 500 }}>{t.subject}</td>
-                <td>{t.customer}</td>
-                <td
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    color: t.ai === '—' ? 'var(--fg-4)' : 'var(--fg-2)',
-                  }}
-                >
-                  {t.ai}
-                </td>
-                <td>
-                  <span
-                    className="status-pill"
-                    data-tone={
-                      t.status === 'auto-resolved'
-                        ? 'green'
-                        : t.status === 'awaiting reply'
-                          ? 'amber'
-                          : 'rose'
-                    }
-                  >
-                    {t.status}
-                  </span>
-                </td>
-                <td style={{ color: 'var(--fg-3)' }}>{t.since}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      )}
     </div>
   );
 }

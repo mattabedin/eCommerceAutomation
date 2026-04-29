@@ -124,3 +124,78 @@ export const messages = pgTable('message', {
   content: text('content').notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
 });
+
+// Phase 4B runtime tables — real customer / order / ticket records the
+// operator can edit and respond to. Seed data is generated on demand via a
+// server action; later phases replace seed-on-demand with live integrations
+// (Stripe orders, Klaviyo customers, Forge-native tickets).
+
+export const customers = pgTable('customer', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  brandId: text('brandId')
+    .notNull()
+    .references(() => brands.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+});
+
+export const orders = pgTable('order', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  brandId: text('brandId')
+    .notNull()
+    .references(() => brands.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').references(() => customers.id, {
+    onDelete: 'set null',
+  }),
+  // Cents.
+  total: integer('total').notNull(),
+  itemCount: integer('itemCount').notNull().default(1),
+  status: text('status', { enum: ['paid', 'refund_requested', 'refunded'] })
+    .notNull()
+    .default('paid'),
+  fulfill: text('fulfill', {
+    enum: ['processing', 'shipped', 'delivered', 'fulfilled', 'cancelled'],
+  })
+    .notNull()
+    .default('processing'),
+  notes: text('notes'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+});
+
+export const tickets = pgTable('ticket', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  brandId: text('brandId')
+    .notNull()
+    .references(() => brands.id, { onDelete: 'cascade' }),
+  customerId: text('customerId').references(() => customers.id, {
+    onDelete: 'set null',
+  }),
+  subject: text('subject').notNull(),
+  status: text('status', { enum: ['open', 'awaiting', 'resolved'] })
+    .notNull()
+    .default('open'),
+  // Soren's confidence on auto-resolving. "—" when no AI suggestion.
+  aiConfidence: text('aiConfidence'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+});
+
+export const ticketMessages = pgTable('ticket_message', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  ticketId: text('ticketId')
+    .notNull()
+    .references(() => tickets.id, { onDelete: 'cascade' }),
+  sender: text('sender', { enum: ['customer', 'operator', 'agent'] }).notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+});

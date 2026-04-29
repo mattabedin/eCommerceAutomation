@@ -22,6 +22,13 @@
       "when": 1777414279426,
       "tag": "0002_organic_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777476255277,
+      "tag": "0003_keen_harrier",
+      "breakpoints": true
     }
   ]
 }

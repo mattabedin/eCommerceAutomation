@@ -1,14 +1,16 @@
 import Link from 'next/link';
-import { eq, desc, asc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import {
-  db,
   brands,
-  products as productsTable,
+  customers,
+  db,
+  orders as ordersTable,
   workspaceMembers,
 } from '@forge/db';
-import { mockOrders } from '@/lib/mock-runtime';
+import { OrdersManager } from '@/components/orders/orders-manager';
+import { SeedDemoDataButton } from '@/components/runtime/seed-demo-data-button';
 
 export const metadata = {
   title: 'Orders — Forge',
@@ -42,18 +44,19 @@ export default async function OrdersPage({ searchParams }: PageProps) {
     ? allBrands.find(b => b.id === searchParams.brand) ?? allBrands[0]!
     : allBrands[0]!;
 
-  const products = await db.query.products.findMany({
-    where: eq(productsTable.brandId, activeBrand.id),
-    orderBy: [asc(productsTable.position)],
-  });
+  const [orderRows, customerRows] = await Promise.all([
+    db.query.orders.findMany({
+      where: eq(ordersTable.brandId, activeBrand.id),
+      orderBy: [desc(ordersTable.createdAt)],
+    }),
+    db.query.customers.findMany({
+      where: eq(customers.brandId, activeBrand.id),
+    }),
+  ]);
 
-  const orders = mockOrders(
-    activeBrand.id,
-    products.map(p => ({ name: p.name, price: p.price / 100 })),
-    8,
-  );
+  const customerById = new Map(customerRows.map(c => [c.id, c]));
 
-  const grossRevenue = orders.reduce((s, o) => s + o.total, 0);
+  const grossRevenue = orderRows.reduce((s, o) => s + o.total, 0) / 100;
 
   return (
     <div className="view-pad">
@@ -61,13 +64,13 @@ export default async function OrdersPage({ searchParams }: PageProps) {
         <div>
           <h1>Orders</h1>
           <div className="desc">
-            {orders.length} orders · ${grossRevenue.toFixed(2)} gross · {' '}
+            {orderRows.length} orders · ${grossRevenue.toFixed(2)} gross ·{' '}
             <strong>{activeBrand.name}</strong>
           </div>
         </div>
-        <span style={{ fontSize: 11, color: 'var(--fg-4)', fontFamily: 'var(--font-mono)' }}>
-          mock · Stripe wires up in Phase 6
-        </span>
+        {orderRows.length === 0 && (
+          <SeedDemoDataButton brandId={activeBrand.id} label="Seed sample data" />
+        )}
       </div>
 
       {allBrands.length > 1 && (
@@ -85,73 +88,51 @@ export default async function OrdersPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      <div className="dash-grid">
-        <Kpi label="Orders" value={String(orders.length)} />
-        <Kpi label="Gross" value={`$${grossRevenue.toFixed(0)}`} />
-        <Kpi
-          label="Avg order"
-          value={`$${orders.length ? (grossRevenue / orders.length).toFixed(0) : '0'}`}
-        />
-        <Kpi
-          label="Refund req"
-          value={String(orders.filter(o => o.status === 'refund req').length)}
-        />
-      </div>
+      {orderRows.length > 0 ? (
+        <>
+          <div className="dash-grid">
+            <Kpi label="Orders" value={String(orderRows.length)} />
+            <Kpi label="Gross" value={`$${grossRevenue.toFixed(0)}`} />
+            <Kpi
+              label="Avg order"
+              value={`$${orderRows.length ? (grossRevenue / orderRows.length).toFixed(0) : '0'}`}
+            />
+            <Kpi
+              label="Refund req"
+              value={String(
+                orderRows.filter(o => o.status === 'refund_requested').length,
+              )}
+            />
+          </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <div className="panel-title">Recent orders</div>
-          <div className="panel-sub">{orders.length} total</div>
+          <OrdersManager
+            orders={orderRows.map(o => ({
+              id: o.id,
+              customer: customerById.get(o.customerId ?? '')?.name ?? 'Guest',
+              total: o.total / 100,
+              itemCount: o.itemCount,
+              status: o.status,
+              fulfill: o.fulfill,
+              notes: o.notes,
+              createdAt: o.createdAt.toISOString(),
+            }))}
+          />
+        </>
+      ) : (
+        <div className="panel">
+          <div className="panel-head">
+            <div className="panel-title">No orders yet</div>
+            <div className="panel-sub">Phase 6 wires real Stripe orders</div>
+          </div>
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--fg-3)', marginBottom: 12 }}>
+              Generate sample customers, orders, and tickets so the views feel
+              alive while you wait for real Stripe traffic.
+            </div>
+            <SeedDemoDataButton brandId={activeBrand.id} label="Seed sample data →" />
+          </div>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th>Fulfilment</th>
-              <th>Placed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map(o => (
-              <tr key={o.id}>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{o.id}</td>
-                <td style={{ fontWeight: 500 }}>{o.customer}</td>
-                <td>{o.itemCount}</td>
-                <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  ${o.total.toFixed(2)}
-                </td>
-                <td>
-                  <span
-                    className="status-pill"
-                    data-tone={o.status === 'paid' ? 'green' : 'rose'}
-                  >
-                    {o.status}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    className="status-pill"
-                    data-tone={
-                      o.fulfill === 'delivered' || o.fulfill === 'fulfilled'
-                        ? 'green'
-                        : o.fulfill === 'shipped'
-                          ? 'indigo'
-                          : 'amber'
-                    }
-                  >
-                    {o.fulfill}
-                  </span>
-                </td>
-                <td style={{ color: 'var(--fg-3)' }}>{o.date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      )}
     </div>
   );
 }
