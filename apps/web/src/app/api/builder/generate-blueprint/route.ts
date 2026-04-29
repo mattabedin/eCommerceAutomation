@@ -47,12 +47,12 @@ const BLUEPRINT_USER_INSTRUCTION = `You have what you need from the conversation
 Be opinionated. Make decisions where the brief is ambiguous — that's your job. The operator can edit anything afterwards.
 
 Quality bar:
-- Brand name: ownable, not generic, no "Inc." or "LLC" suffixes.
-- Tagline: punchy, 5–8 words.
+- Brand name: ownable, not generic, no "Inc." or "LLC" suffixes. **English by default.** Do not reach for French, Italian, or Latin loanwords ("Maison", "Bella", "Vita", "Nova", "Vant", "Atelier") unless the operator's brief explicitly asks for that flavour. Prefer real English words or English coinages — names that an English-speaking founder would actually choose.
+- Tagline: punchy, 5–8 words. English (same rule).
 - Palette: a deep primary, a complementary secondary that pops on it, a soft accent for surface bands.
-- Categories: 3–5 short labels that genuinely span the catalogue.
-- 6–8 products: each one a real product (not a placeholder), spread across the categories, with prices that fit the niche and "was" prices ~25–35% above price for a credible discount.
-- Hero copy: headline 3–7 words, subhead 1–2 sentences that earn the click.
+- Categories: 3–5 short labels that genuinely span the catalogue. English.
+- 6–8 products: each one a real product (not a placeholder), spread across the categories, with prices that fit the niche and "was" prices ~25–35% above price for a credible discount. Product names in English.
+- Hero copy: headline 3–7 words, subhead 1–2 sentences that earn the click. English.
 - Domain: lowercase, hyphens-only, brand-name-derived, ends in .forge.shop.
 
 Do not respond in chat. Just call the tool.`;
