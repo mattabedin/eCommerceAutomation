@@ -104,6 +104,16 @@ export default async function PreviewPage({ searchParams }: PageProps) {
           {brand.domain ?? `${brand.slug}.forge.shop`}
         </code>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {brand.publishedAt && (
+            <a
+              href={`/s/${brand.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-sm"
+            >
+              Visit live store ↗
+            </a>
+          )}
           <Link
             href={`/app/products?brand=${brand.id}`}
             className="btn btn-sm btn-ghost"

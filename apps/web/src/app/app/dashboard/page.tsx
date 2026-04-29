@@ -187,13 +187,23 @@ export default async function DashboardPage() {
                     </span>
                   </td>
                   <td style={{ color: 'var(--fg-3)' }}>{formatRelative(b.createdAt)}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 4 }}>
                     <Link
                       href={`/app/preview?brand=${b.id}`}
                       className="btn btn-sm btn-ghost"
                     >
                       Preview →
                     </Link>
+                    {b.publishedAt && (
+                      <a
+                        href={`/s/${b.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-sm btn-ghost"
+                      >
+                        Visit ↗
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}
