@@ -1,7 +1,12 @@
-import { eq, and, asc, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 
-import { db, brands, products as productsTable } from '@forge/db';
+import {
+  brands,
+  db,
+  productVariants,
+  products as productsTable,
+} from '@forge/db';
 import { SavedStorefront } from '@/components/preview/saved-storefront';
 
 export const dynamic = 'force-dynamic';
@@ -28,9 +33,24 @@ export default async function PublicStorefrontPage({ params }: Props) {
     orderBy: [asc(productsTable.position)],
   });
 
+  const variantRows = productRows.length
+    ? await db.query.productVariants.findMany({
+        where: inArray(
+          productVariants.productId,
+          productRows.map(p => p.id),
+        ),
+        orderBy: [asc(productVariants.position)],
+      })
+    : [];
+
+  const productsWithVariants = productRows.map(p => ({
+    ...p,
+    variants: variantRows.filter(v => v.productId === p.id),
+  }));
+
   return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <SavedStorefront brand={brand} products={productRows} />
+      <SavedStorefront brand={brand} products={productsWithVariants} />
     </main>
   );
 }

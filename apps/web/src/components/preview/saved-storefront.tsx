@@ -10,14 +10,27 @@ type DbBrand = {
   createdAt: Date;
 };
 
+type DbVariant = {
+  id: string;
+  size: string | null;
+  color: string | null;
+  colorHex: string | null;
+  priceOverride: number | null; // cents
+  salePrice: number | null; // cents
+  stock: number;
+};
+
 type DbProduct = {
   id: string;
   name: string;
   category: string;
+  categories: string[];
   price: number;
+  salePrice: number | null;
   wasPrice: number;
   tone: string | null;
   position: number;
+  variants?: DbVariant[];
 };
 
 const GENERIC_BENEFITS = [
@@ -48,7 +61,17 @@ export function SavedStorefront({
     secondary: '#6366F1',
     accent: '#fafafa',
   };
-  const categories = identity.categories ?? Array.from(new Set(products.map(p => p.category)));
+  // Prefer the union of every product's tags so categories editable from the
+  // products page show up in the storefront nav. Fall back to identity.
+  const productCats = Array.from(
+    new Set(
+      products.flatMap(p =>
+        p.categories?.length ? p.categories : p.category ? [p.category] : [],
+      ),
+    ),
+  );
+  const categories =
+    productCats.length > 0 ? productCats : (identity.categories ?? []);
   const heroHeadline = identity.hero_headline ?? brand.name;
   const heroSubhead = identity.hero_subhead ?? '';
 
@@ -110,26 +133,89 @@ export function SavedStorefront({
             {products.length} pieces · curated by Forge AI
           </div>
           <div className="product-grid">
-            {products.map(p => (
-              <div key={p.id} className="product-card">
-                <div
-                  className="product-img"
-                  data-label={`${p.category.toLowerCase()} · ${p.id.slice(0, 6)}`}
-                  style={{
-                    background: p.tone
-                      ? `repeating-linear-gradient(135deg, ${p.tone}22, ${p.tone}22 8px, ${p.tone}11 8px, ${p.tone}11 16px), linear-gradient(135deg, ${p.tone}66, ${p.tone}cc)`
-                      : 'var(--surface-2)',
-                  }}
-                />
-                <div className="product-name" style={{ color: colors.primary }}>
-                  {p.name}
+            {products.map(p => {
+              const variants = p.variants ?? [];
+              const sizes = Array.from(
+                new Set(variants.map(v => v.size).filter((s): s is string => !!s)),
+              );
+              const swatches = uniqueSwatches(variants);
+              const onSale = p.salePrice != null;
+              return (
+                <div key={p.id} className="product-card">
+                  <div
+                    className="product-img"
+                    data-label={`${p.category.toLowerCase()} · ${p.id.slice(0, 6)}`}
+                    style={{
+                      background: p.tone
+                        ? `repeating-linear-gradient(135deg, ${p.tone}22, ${p.tone}22 8px, ${p.tone}11 8px, ${p.tone}11 16px), linear-gradient(135deg, ${p.tone}66, ${p.tone}cc)`
+                        : 'var(--surface-2)',
+                    }}
+                  />
+                  <div className="product-name" style={{ color: colors.primary }}>
+                    {p.name}
+                  </div>
+                  <div className="product-price">
+                    {onSale ? (
+                      <>
+                        <span style={{ color: colors.secondary, fontWeight: 600 }}>
+                          ${((p.salePrice ?? 0) / 100).toFixed(2)}
+                        </span>{' '}
+                        <span className="compare">
+                          ${(p.price / 100).toFixed(2)}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        ${(p.price / 100).toFixed(2)}
+                        {p.wasPrice > p.price && (
+                          <>
+                            {' '}
+                            <span className="compare">
+                              ${(p.wasPrice / 100).toFixed(2)}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {(sizes.length > 0 || swatches.length > 0) && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'center',
+                        marginTop: 6,
+                        fontSize: 11,
+                        color: 'var(--fg-3)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {swatches.length > 0 && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {swatches.slice(0, 5).map(sw => (
+                            <span
+                              key={sw.key}
+                              title={sw.label}
+                              style={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: 999,
+                                background: sw.hex ?? 'var(--surface-2)',
+                                border: '1px solid var(--border)',
+                                display: 'inline-block',
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {sizes.length > 0 && (
+                        <span>{sizes.slice(0, 6).join(' · ')}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="product-price">
-                  ${(p.price / 100).toFixed(2)}{' '}
-                  <span className="compare">${(p.wasPrice / 100).toFixed(2)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -165,4 +251,21 @@ export function SavedStorefront({
       </div>
     </div>
   );
+}
+
+function uniqueSwatches(
+  variants: DbVariant[],
+): { key: string; label: string; hex: string | null }[] {
+  const seen = new Map<string, { key: string; label: string; hex: string | null }>();
+  for (const v of variants) {
+    if (!v.color && !v.colorHex) continue;
+    const key = (v.color ?? v.colorHex ?? '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.set(key, {
+      key,
+      label: v.color ?? v.colorHex ?? 'color',
+      hex: v.colorHex,
+    });
+  }
+  return Array.from(seen.values());
 }

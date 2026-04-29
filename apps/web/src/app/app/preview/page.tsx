@@ -3,8 +3,9 @@ import { eq, desc, asc, and, inArray } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import {
-  db,
   brands,
+  db,
+  productVariants,
   products as productsTable,
   workspaceMembers,
 } from '@forge/db';
@@ -56,6 +57,21 @@ export default async function PreviewPage({ searchParams }: PageProps) {
     where: eq(productsTable.brandId, brand.id),
     orderBy: [asc(productsTable.position)],
   });
+
+  const variantRows = productRows.length
+    ? await db.query.productVariants.findMany({
+        where: inArray(
+          productVariants.productId,
+          productRows.map(p => p.id),
+        ),
+        orderBy: [asc(productVariants.position)],
+      })
+    : [];
+
+  const productsWithVariants = productRows.map(p => ({
+    ...p,
+    variants: variantRows.filter(v => v.productId === p.id),
+  }));
 
   // Pull editable fields out of the identity blob (with safe fallbacks).
   const parsed = BlueprintSchema.safeParse(brand.identity);
@@ -124,7 +140,7 @@ export default async function PreviewPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <SavedStorefront brand={brand} products={productRows} />
+      <SavedStorefront brand={brand} products={productsWithVariants} />
     </div>
   );
 }

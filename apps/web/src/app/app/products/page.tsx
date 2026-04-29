@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { eq, and, asc, desc, inArray } from 'drizzle-orm';
+import { asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import {
-  db,
   brands,
+  db,
+  productVariants,
   products as productsTable,
   workspaceMembers,
 } from '@forge/db';
@@ -47,6 +48,23 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     orderBy: [asc(productsTable.position)],
   });
 
+  const variantRows = productRows.length
+    ? await db.query.productVariants.findMany({
+        where: inArray(
+          productVariants.productId,
+          productRows.map(p => p.id),
+        ),
+        orderBy: [asc(productVariants.position)],
+      })
+    : [];
+
+  const variantsByProduct = new Map<string, typeof variantRows>();
+  for (const v of variantRows) {
+    const list = variantsByProduct.get(v.productId);
+    if (list) list.push(v);
+    else variantsByProduct.set(v.productId, [v]);
+  }
+
   return (
     <div className="view-pad">
       <div className="page-head">
@@ -83,10 +101,23 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           id: p.id,
           name: p.name,
           category: p.category,
+          categories: p.categories ?? [],
           price: p.price / 100,
+          salePrice: p.salePrice == null ? null : p.salePrice / 100,
           was: p.wasPrice / 100,
           description: p.description,
           tone: p.tone,
+          variants: (variantsByProduct.get(p.id) ?? []).map(v => ({
+            id: v.id,
+            size: v.size,
+            color: v.color,
+            colorHex: v.colorHex,
+            priceOverride:
+              v.priceOverride == null ? null : v.priceOverride / 100,
+            salePrice: v.salePrice == null ? null : v.salePrice / 100,
+            stock: v.stock,
+            sku: v.sku,
+          })),
         }))}
       />
     </div>

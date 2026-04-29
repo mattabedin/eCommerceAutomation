@@ -6,7 +6,13 @@ import { and, eq, inArray, max } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { auth } from '@/lib/auth';
-import { brands, db, products, workspaceMembers } from '@forge/db';
+import {
+  brands,
+  db,
+  products,
+  productVariants,
+  workspaceMembers,
+} from '@forge/db';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -41,6 +47,15 @@ async function loadOwnedProduct(userId: string, productId: string) {
   return brand ? row : null;
 }
 
+async function loadOwnedVariant(userId: string, variantId: string) {
+  const variant = await db.query.productVariants.findFirst({
+    where: eq(productVariants.id, variantId),
+  });
+  if (!variant) return null;
+  const product = await loadOwnedProduct(userId, variant.productId);
+  return product ? variant : null;
+}
+
 // ---------- schemas ---------------------------------------------------------
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Hex like #112233');
@@ -60,12 +75,24 @@ const brandUpdateSchema = z.object({
   accent: hex,
 });
 
+// Multi-category tags. Free-text, lowercase enforced for consistency in UI
+// filters. Up to 8 per product to keep the catalogue navigation tidy.
+const categoriesSchema = z
+  .array(z.string().trim().min(1).max(40))
+  .max(8)
+  .default([]);
+
 const productUpdateSchema = z.object({
   productId: z.string().min(1),
   name: z.string().min(1).max(160),
+  // Primary category is kept as a single string for back-compat; categories[]
+  // is the source of truth for new code.
   category: z.string().min(1).max(80),
+  categories: categoriesSchema,
   // Prices arrive in dollars (decimal); we round to cents on the server.
   price: z.number().nonnegative().max(1_000_000),
+  // Optional discount. null = no active sale.
+  salePrice: z.number().nonnegative().max(1_000_000).nullable().optional(),
   was: z.number().nonnegative().max(1_000_000),
   description: z.string().max(2000).optional().nullable(),
   tone: hex.optional().nullable(),
@@ -75,11 +102,38 @@ const productAddSchema = z.object({
   brandId: z.string().min(1),
   name: z.string().min(1).max(160),
   category: z.string().min(1).max(80),
+  categories: categoriesSchema,
   price: z.number().nonnegative().max(1_000_000),
+  salePrice: z.number().nonnegative().max(1_000_000).nullable().optional(),
   was: z.number().nonnegative().max(1_000_000),
   description: z.string().max(2000).optional().nullable(),
   tone: hex.optional().nullable(),
 });
+
+// Variant payloads. size and color are independently optional so a product
+// can vary on only one axis (e.g. size only). At least one must be present.
+const variantBaseSchema = z
+  .object({
+    size: z.string().trim().max(40).optional().nullable(),
+    color: z.string().trim().max(40).optional().nullable(),
+    colorHex: hex.optional().nullable(),
+    priceOverride: z.number().nonnegative().max(1_000_000).nullable().optional(),
+    salePrice: z.number().nonnegative().max(1_000_000).nullable().optional(),
+    stock: z.number().int().min(0).max(1_000_000).default(0),
+    sku: z.string().trim().max(80).optional().nullable(),
+  })
+  .refine(v => (v.size && v.size.length) || (v.color && v.color.length), {
+    message: 'Variant needs a size or a color (or both).',
+    path: ['size'],
+  });
+
+const variantAddSchema = z
+  .object({ productId: z.string().min(1) })
+  .and(variantBaseSchema);
+
+const variantUpdateSchema = z
+  .object({ variantId: z.string().min(1) })
+  .and(variantBaseSchema);
 
 // ---------- actions ---------------------------------------------------------
 
@@ -133,6 +187,24 @@ export async function updateBrand(
   return { ok: true };
 }
 
+// Normalise tags: trim, lowercase, dedupe (case-insensitive), drop empties.
+function normaliseCategories(raw: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of raw) {
+    const v = t.trim().toLowerCase();
+    if (!v) continue;
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
+function dollarsToCents(d: number): number {
+  return Math.round(d * 100);
+}
+
 export async function updateProduct(
   input: z.infer<typeof productUpdateSchema>,
 ): Promise<ActionResult> {
@@ -148,13 +220,25 @@ export async function updateProduct(
   const product = await loadOwnedProduct(session.user.id, parsed.data.productId);
   if (!product) return { ok: false, error: 'Product not found.' };
 
+  const cats = normaliseCategories(
+    parsed.data.categories.length > 0 ? parsed.data.categories : [parsed.data.category],
+  );
+  // Mirror the first tag into the legacy single-category field so the storefront
+  // and any old reader keeps working.
+  const primary = cats[0] ?? parsed.data.category;
+
   await db
     .update(products)
     .set({
       name: parsed.data.name,
-      category: parsed.data.category,
-      price: Math.round(parsed.data.price * 100),
-      wasPrice: Math.round(parsed.data.was * 100),
+      category: primary,
+      categories: cats,
+      price: dollarsToCents(parsed.data.price),
+      salePrice:
+        parsed.data.salePrice == null || parsed.data.salePrice === 0
+          ? null
+          : dollarsToCents(parsed.data.salePrice),
+      wasPrice: dollarsToCents(parsed.data.was),
       description: parsed.data.description ?? null,
       tone: parsed.data.tone ?? null,
     })
@@ -186,16 +270,125 @@ export async function addProduct(
     .where(eq(products.brandId, brand.id));
   const nextPos = (last?.max ?? -1) + 1;
 
+  const cats = normaliseCategories(
+    parsed.data.categories.length > 0 ? parsed.data.categories : [parsed.data.category],
+  );
+  const primary = cats[0] ?? parsed.data.category;
+
   await db.insert(products).values({
     brandId: brand.id,
     name: parsed.data.name,
-    category: parsed.data.category,
-    price: Math.round(parsed.data.price * 100),
-    wasPrice: Math.round(parsed.data.was * 100),
+    category: primary,
+    categories: cats,
+    price: dollarsToCents(parsed.data.price),
+    salePrice:
+      parsed.data.salePrice == null || parsed.data.salePrice === 0
+        ? null
+        : dollarsToCents(parsed.data.salePrice),
+    wasPrice: dollarsToCents(parsed.data.was),
     description: parsed.data.description ?? null,
     tone: parsed.data.tone ?? null,
     position: nextPos,
   });
+
+  revalidatePath(`/app/products`);
+  revalidatePath(`/app/preview`);
+  return { ok: true };
+}
+
+// ---------- variants -------------------------------------------------------
+
+export async function addVariant(
+  input: z.infer<typeof variantAddSchema>,
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: 'Not signed in.' };
+
+  const parsed = variantAddSchema.safeParse(input);
+  if (!parsed.success) {
+    const i = parsed.error.issues[0];
+    return { ok: false, error: `${i.path.join('.')}: ${i.message}` };
+  }
+
+  const product = await loadOwnedProduct(session.user.id, parsed.data.productId);
+  if (!product) return { ok: false, error: 'Product not found.' };
+
+  const [last] = await db
+    .select({ max: max(productVariants.position) })
+    .from(productVariants)
+    .where(eq(productVariants.productId, product.id));
+  const nextPos = (last?.max ?? -1) + 1;
+
+  await db.insert(productVariants).values({
+    productId: product.id,
+    size: parsed.data.size?.trim() || null,
+    color: parsed.data.color?.trim() || null,
+    colorHex: parsed.data.colorHex ?? null,
+    priceOverride:
+      parsed.data.priceOverride == null
+        ? null
+        : dollarsToCents(parsed.data.priceOverride),
+    salePrice:
+      parsed.data.salePrice == null || parsed.data.salePrice === 0
+        ? null
+        : dollarsToCents(parsed.data.salePrice),
+    stock: parsed.data.stock,
+    sku: parsed.data.sku?.trim() || null,
+    position: nextPos,
+  });
+
+  revalidatePath(`/app/products`);
+  revalidatePath(`/app/preview`);
+  return { ok: true };
+}
+
+export async function updateVariant(
+  input: z.infer<typeof variantUpdateSchema>,
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: 'Not signed in.' };
+
+  const parsed = variantUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    const i = parsed.error.issues[0];
+    return { ok: false, error: `${i.path.join('.')}: ${i.message}` };
+  }
+
+  const variant = await loadOwnedVariant(session.user.id, parsed.data.variantId);
+  if (!variant) return { ok: false, error: 'Variant not found.' };
+
+  await db
+    .update(productVariants)
+    .set({
+      size: parsed.data.size?.trim() || null,
+      color: parsed.data.color?.trim() || null,
+      colorHex: parsed.data.colorHex ?? null,
+      priceOverride:
+        parsed.data.priceOverride == null
+          ? null
+          : dollarsToCents(parsed.data.priceOverride),
+      salePrice:
+        parsed.data.salePrice == null || parsed.data.salePrice === 0
+          ? null
+          : dollarsToCents(parsed.data.salePrice),
+      stock: parsed.data.stock,
+      sku: parsed.data.sku?.trim() || null,
+    })
+    .where(eq(productVariants.id, variant.id));
+
+  revalidatePath(`/app/products`);
+  revalidatePath(`/app/preview`);
+  return { ok: true };
+}
+
+export async function deleteVariant(variantId: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: 'Not signed in.' };
+
+  const variant = await loadOwnedVariant(session.user.id, variantId);
+  if (!variant) return { ok: false, error: 'Variant not found.' };
+
+  await db.delete(productVariants).where(eq(productVariants.id, variant.id));
 
   revalidatePath(`/app/products`);
   revalidatePath(`/app/preview`);

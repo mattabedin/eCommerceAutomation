@@ -74,15 +74,48 @@ export const products = pgTable('product', {
     .notNull()
     .references(() => brands.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
+  // Primary category — kept for back-compat with anything that reads a single
+  // category. New UI mirrors categories[0] into this column.
   category: text('category').notNull(),
-  // Both prices in cents. wasPrice is the compare-at — used for the visual
-  // "was $129" strikethrough. wasPrice should be > price.
+  // Multi-category free-text tags. New rows write here; legacy rows will have
+  // an empty array until the migration backfills them.
+  categories: text('categories').array().notNull().default([]),
+  // price = current regular (list) price in cents.
+  // salePrice = optional active discount in cents; when set, customer pays
+  //   this and `price` renders strikethrough.
+  // wasPrice = MSRP / compare-at in cents; renders strikethrough when there
+  //   is no salePrice.
   price: integer('price').notNull(),
+  salePrice: integer('salePrice'),
   wasPrice: integer('wasPrice').notNull(),
   description: text('description'),
   // Hex color (#xxxxxx) used for the product tile visual in the preview.
   tone: text('tone'),
   // Display ordering inside the brand. Ascending — lower comes first.
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+});
+
+// Buyable variants for a product (size + color). Empty variant set = single
+// SKU using the product's own price. When variants exist each one can
+// override price / salePrice and tracks its own stock.
+export const productVariants = pgTable('product_variant', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  productId: text('productId')
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  // Nullable so a product can vary on only one axis.
+  size: text('size'),
+  color: text('color'),
+  // Optional swatch hex for the color (e.g. "#0a0a0a").
+  colorHex: text('colorHex'),
+  // Cents. Null = inherit from product.price / product.salePrice.
+  priceOverride: integer('priceOverride'),
+  salePrice: integer('salePrice'),
+  stock: integer('stock').notNull().default(0),
+  sku: text('sku'),
   position: integer('position').notNull().default(0),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
 });

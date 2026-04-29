@@ -101,6 +101,9 @@ async function runApprove(
         brandId: brand.id,
         name: p.name,
         category: p.category,
+        // Blueprint generates a single category today; store it as a 1-tag
+        // categories array so the new multi-category UI has something to show.
+        categories: [p.category],
         price: Math.round(p.price * 100),
         wasPrice: Math.round(p.was * 100),
         description: p.description,
