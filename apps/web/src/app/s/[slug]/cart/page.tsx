@@ -8,6 +8,7 @@ import {
   type Blueprint,
 } from '@/lib/builder/blueprint-schema';
 import { brandTokenCss } from '@/lib/storefront/brand-tokens';
+import { resolveTheme } from '@/lib/storefront/themes';
 import { AnnouncementBar } from '@/components/storefront/announcement-bar';
 import { CartView } from '@/components/storefront/cart-view';
 import { CartIndicator } from '@/components/storefront/cart-indicator';
@@ -36,6 +37,7 @@ export default async function CartPage({ params }: Props) {
     accent: '#fafafa',
   };
   const tokenCss = brandTokenCss(brand.slug, colors);
+  const theme = resolveTheme(brand.theme ?? null);
 
   // Pre-fetch a small upsell pool — the client filters out anything already
   // in the cart and renders the top 4.
@@ -46,7 +48,11 @@ export default async function CartPage({ params }: Props) {
   });
 
   return (
-    <main data-brand={brand.slug} style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <main
+      data-brand={brand.slug}
+      data-theme={theme.id}
+      style={{ minHeight: '100vh', background: 'var(--bg)' }}
+    >
       <style dangerouslySetInnerHTML={{ __html: tokenCss }} />
       <div className="store" style={{ background: 'var(--surface)' }}>
         <AnnouncementBar message="✦ Free shipping over $75 · Free 60-day returns ✦" />

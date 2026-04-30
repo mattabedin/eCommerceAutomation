@@ -36,6 +36,13 @@
       "when": 1777647600000,
       "tag": "0004_product_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777733900000,
+      "tag": "0005_brand_theme",
+      "breakpoints": true
     }
   ]
 }

@@ -135,7 +135,43 @@ const variantUpdateSchema = z
   .object({ variantId: z.string().min(1) })
   .and(variantBaseSchema);
 
+const themeUpdateSchema = z.object({
+  brandId: z.string().min(1),
+  theme: z.string().min(1).max(40),
+});
+
 // ---------- actions ---------------------------------------------------------
+
+export async function updateBrandTheme(
+  input: z.infer<typeof themeUpdateSchema>,
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: 'Not signed in.' };
+
+  const parsed = themeUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    const i = parsed.error.issues[0];
+    return { ok: false, error: `${i.path.join('.')}: ${i.message}` };
+  }
+
+  // Whitelist against the registry so we can't store an arbitrary value.
+  const { isThemeId } = await import('@/lib/storefront/themes');
+  if (!isThemeId(parsed.data.theme)) {
+    return { ok: false, error: 'Unknown theme.' };
+  }
+
+  const brand = await loadOwnedBrand(session.user.id, parsed.data.brandId);
+  if (!brand) return { ok: false, error: 'Brand not found.' };
+
+  await db
+    .update(brands)
+    .set({ theme: parsed.data.theme })
+    .where(eq(brands.id, brand.id));
+
+  revalidatePath('/app/preview');
+  revalidatePath('/app/dashboard');
+  return { ok: true };
+}
 
 export async function updateBrand(
   input: z.infer<typeof brandUpdateSchema>,

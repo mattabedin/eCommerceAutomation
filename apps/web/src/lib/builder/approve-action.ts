@@ -15,6 +15,8 @@ import {
   BlueprintSchema,
   type Blueprint,
 } from '@/lib/builder/blueprint-schema';
+import { suggestThemeFromBrief } from '@/lib/storefront/themes';
+import { messages as messagesTable } from '@forge/db';
 
 export type ApproveResult = { ok: false; error: string };
 
@@ -79,6 +81,30 @@ async function runApprove(
 
   const slug = blueprint.domain.replace(/\.forge\.shop$/, '');
 
+  // Pick a starter theme from the conversation brief + brand metadata.
+  // Operator can change this any time from /app/preview.
+  const briefBits: string[] = [
+    blueprint.brand_name,
+    blueprint.tagline ?? '',
+    (blueprint.categories ?? []).join(' '),
+    blueprint.hero_headline ?? '',
+    blueprint.hero_subhead ?? '',
+  ];
+  if (conversationId) {
+    try {
+      const firstUserMsg = await db.query.messages.findFirst({
+        where: and(
+          eq(messagesTable.conversationId, conversationId),
+          eq(messagesTable.role, 'user'),
+        ),
+      });
+      if (firstUserMsg?.content) briefBits.push(firstUserMsg.content);
+    } catch {
+      /* conversations table is optional — fall back silently */
+    }
+  }
+  const theme = suggestThemeFromBrief(briefBits.join(' '));
+
   const [brand] = await db
     .insert(brands)
     .values({
@@ -87,6 +113,7 @@ async function runApprove(
       slug,
       domain: blueprint.domain,
       identity: blueprint,
+      theme,
       publishedAt: new Date(),
     })
     .returning();

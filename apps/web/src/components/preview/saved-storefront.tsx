@@ -2,12 +2,13 @@ import Link from 'next/link';
 
 import { BlueprintSchema, type Blueprint } from '@/lib/builder/blueprint-schema';
 import { brandTokenCss } from '@/lib/storefront/brand-tokens';
+import { resolveTheme } from '@/lib/storefront/themes';
 import { AnnouncementBar } from '@/components/storefront/announcement-bar';
 import { CartIndicator } from '@/components/storefront/cart-indicator';
 import { CategoryTiles } from '@/components/storefront/category-tiles';
 import { EditorialBlock } from '@/components/storefront/editorial-block';
 import { NewsletterCapture } from '@/components/storefront/newsletter-capture';
-import { HeroTrustBadges } from '@/components/storefront/trust-badges';
+import { StorefrontHero } from '@/components/storefront/hero-variants';
 
 type DbBrand = {
   id: string;
@@ -17,6 +18,7 @@ type DbBrand = {
   identity: unknown;
   publishedAt: Date | null;
   createdAt: Date;
+  theme?: string | null;
 };
 
 type DbVariant = {
@@ -24,8 +26,8 @@ type DbVariant = {
   size: string | null;
   color: string | null;
   colorHex: string | null;
-  priceOverride: number | null; // cents
-  salePrice: number | null; // cents
+  priceOverride: number | null;
+  salePrice: number | null;
   stock: number;
 };
 
@@ -42,10 +44,10 @@ type DbProduct = {
   variants?: DbVariant[];
 };
 
-// Server component. Renders the conversion-optimised storefront from DB
-// rows + the brand's identity Blueprint. The whole subtree is wrapped in
-// a `[data-brand=...]` block so per-brand colour tokens stay scoped and
-// the admin shell never picks them up.
+// Server component. Renders the storefront from DB rows + the brand's
+// chosen theme. The whole subtree is wrapped in `[data-brand=...]` and
+// `[data-theme=...]` so per-brand colours and per-theme styles stay
+// scoped — the admin shell never picks them up.
 export function SavedStorefront({
   brand,
   products,
@@ -63,6 +65,7 @@ export function SavedStorefront({
     secondary: '#6366F1',
     accent: '#fafafa',
   };
+  const theme = resolveTheme(brand.theme ?? null);
 
   const productCats = Array.from(
     new Set(
@@ -76,26 +79,78 @@ export function SavedStorefront({
 
   const heroHeadline = identity.hero_headline ?? brand.name;
   const heroSubhead = identity.hero_subhead ?? '';
-  const heroParts = heroHeadline.split(' ');
-  const heroLast = heroParts.slice(-1).join(' ');
-  const heroLead = heroParts.slice(0, -1).join(' ');
 
   const tokenCss = brandTokenCss(brand.slug, colors);
 
-  // Preview hero image: stack the two top product tones into a layered
-  // gradient so the hero feels brand-specific even without photography.
-  const heroTones = products.slice(0, 2).map(p => p.tone).filter(Boolean) as string[];
-  const heroBg =
-    heroTones.length >= 2
-      ? `linear-gradient(135deg, ${heroTones[0]}cc, ${heroTones[1]}99)`
-      : `linear-gradient(135deg, ${colors.secondary}55, ${colors.primary}cc)`;
+  // Render the section sequence the theme declares — order matters.
+  const sectionRenderers: Record<string, () => React.ReactNode> = {
+    announcement: () => (
+      <AnnouncementBar message="✦ Free shipping over $75 · Free 60-day returns ✦" />
+    ),
+    hero: () => (
+      <StorefrontHero
+        layout={theme.heroLayout}
+        brandSlug={brand.slug}
+        brandName={brand.name}
+        headline={heroHeadline}
+        subhead={heroSubhead}
+        showTrustBadges
+        topProducts={products.slice(0, 4).map(p => ({
+          id: p.id,
+          name: p.name,
+          tone: p.tone,
+        }))}
+      />
+    ),
+    categories: () =>
+      navCategories.length >= 2 ? (
+        <CategoryTiles
+          slug={brand.slug}
+          categories={navCategories}
+          products={products.map(p => ({
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            categories: p.categories ?? [],
+            tone: p.tone,
+          }))}
+        />
+      ) : null,
+    featured: () => (
+      <section className="store-section" id="featured">
+        <h2 style={{ color: 'var(--brand-primary)' }}>Featured</h2>
+        <div className="sub">
+          {products.length} pieces · curated for the season
+        </div>
+        <div className="product-grid">
+          {products.map(p => (
+            <ProductCard key={p.id} brandSlug={brand.slug} product={p} />
+          ))}
+        </div>
+      </section>
+    ),
+    editorial: () => (
+      <EditorialBlock
+        brandName={brand.name}
+        tagline={identity.tagline}
+      />
+    ),
+    newsletter: () => <NewsletterCapture brandSlug={brand.slug} />,
+    footer: () => (
+      <footer className="store-footer">
+        <span>© 2026 {brand.name}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-4)', fontSize: 10 }}>
+          built with ⊹ Forge · {theme.name}
+        </span>
+        <span>Privacy · Terms · Contact</span>
+      </footer>
+    ),
+  };
 
   return (
-    <div data-brand={brand.slug}>
+    <div data-brand={brand.slug} data-theme={theme.id}>
       <style dangerouslySetInnerHTML={{ __html: tokenCss }} />
       <div className="store" style={{ background: 'var(--surface)' }}>
-        <AnnouncementBar message="✦ Free shipping over $75 · Free 60-day returns ✦" />
-
         <nav className="store-nav">
           <Link
             href={`/s/${brand.slug}`}
@@ -123,76 +178,11 @@ export function SavedStorefront({
           </div>
         </nav>
 
-        <section className="store-hero">
-          <div>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--fg-3)',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                marginBottom: 14,
-              }}
-            >
-              New collection · 2026
-            </div>
-            <h1 style={{ color: 'var(--brand-primary)' }}>
-              {heroLead}{' '}
-              <em style={{ color: 'var(--brand-secondary)' }}>{heroLast}</em>
-            </h1>
-            {heroSubhead && <p>{heroSubhead}</p>}
-            <Link
-              href={`/s/${brand.slug}#featured`}
-              className="btn-brand"
-            >
-              Shop the collection →
-            </Link>
-            <HeroTrustBadges />
-          </div>
-          <div className="hero-img" style={{ background: heroBg }} />
-        </section>
-
-        {navCategories.length >= 2 && (
-          <CategoryTiles
-            slug={brand.slug}
-            categories={navCategories}
-            products={products.map(p => ({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              categories: p.categories ?? [],
-              tone: p.tone,
-            }))}
-          />
-        )}
-
-        <section className="store-section" id="featured">
-          <h2 style={{ color: 'var(--brand-primary)' }}>Featured</h2>
-          <div className="sub">
-            {products.length} pieces · curated for the season
-          </div>
-          <div className="product-grid">
-            {products.map(p => (
-              <ProductCard key={p.id} brandSlug={brand.slug} product={p} />
-            ))}
-          </div>
-        </section>
-
-        <EditorialBlock
-          brandName={brand.name}
-          tagline={identity.tagline}
-        />
-
-        <NewsletterCapture brandSlug={brand.slug} />
-
-        <footer className="store-footer">
-          <span>© 2026 {brand.name}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-4)', fontSize: 10 }}>
-            built with ⊹ Forge
-          </span>
-          <span>Privacy · Terms · Contact</span>
-        </footer>
+        {theme.homepageSections.map((id, idx) => {
+          const renderer = sectionRenderers[id];
+          if (!renderer) return null;
+          return <div key={`${id}-${idx}`}>{renderer()}</div>;
+        })}
       </div>
     </div>
   );

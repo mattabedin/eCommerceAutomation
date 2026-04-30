@@ -12,6 +12,8 @@ import {
 import { PhasePlaceholder } from '@/components/shell/placeholder';
 import { SavedStorefront } from '@/components/preview/saved-storefront';
 import { BrandEditor } from '@/components/preview/brand-editor';
+import { ThemePicker } from '@/components/preview/theme-picker';
+import { resolveTheme } from '@/lib/storefront/themes';
 import {
   BlueprintSchema,
   type Blueprint,
@@ -136,6 +138,10 @@ export default async function PreviewPage({ searchParams }: PageProps) {
           >
             Manage products
           </Link>
+          <ThemePicker
+            brandId={brand.id}
+            current={resolveTheme(brand.theme ?? null).id}
+          />
           <BrandEditor brandId={brand.id} initial={editorInitial} />
         </div>
       </div>

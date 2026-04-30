@@ -13,6 +13,7 @@ import {
   type Blueprint,
 } from '@/lib/builder/blueprint-schema';
 import { brandTokenCss } from '@/lib/storefront/brand-tokens';
+import { resolveTheme } from '@/lib/storefront/themes';
 import { AnnouncementBar } from '@/components/storefront/announcement-bar';
 import { CartIndicator } from '@/components/storefront/cart-indicator';
 import { ProductDetail } from '@/components/storefront/product-detail';
@@ -50,9 +51,14 @@ export default async function PdpPage({ params }: Props) {
     accent: '#fafafa',
   };
   const tokenCss = brandTokenCss(brand.slug, colors);
+  const theme = resolveTheme(brand.theme ?? null);
 
   return (
-    <main data-brand={brand.slug} style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <main
+      data-brand={brand.slug}
+      data-theme={theme.id}
+      style={{ minHeight: '100vh', background: 'var(--bg)' }}
+    >
       <style dangerouslySetInnerHTML={{ __html: tokenCss }} />
       <div className="store" style={{ background: 'var(--surface)' }}>
         <AnnouncementBar message="✦ Free shipping over $75 · Free 60-day returns ✦" />

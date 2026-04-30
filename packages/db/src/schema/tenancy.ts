@@ -58,6 +58,10 @@ export const brands = pgTable('brand', {
   // Brand colors, voice, hero copy, categories, etc. — the structured
   // Blueprint shape (see apps/web/src/lib/builder/blueprint-schema.ts).
   identity: jsonb('identity'),
+  // Storefront theme id. The full registry of valid ids lives in
+  // apps/web/src/lib/storefront/themes.ts. Stored as text so we can ship
+  // new themes without a migration.
+  theme: text('theme').notNull().default('editorial'),
   // Null = draft; set when the operator approves and we trigger the publish
   // job. Phase 3 replaces the publish stub with a real static export + DNS.
   publishedAt: timestamp('publishedAt', { mode: 'date' }),
