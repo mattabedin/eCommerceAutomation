@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   closeTicket,
+  draftTicketReply,
   reopenTicket,
   replyToTicket,
 } from '@/lib/builder/runtime-actions';
@@ -42,11 +43,19 @@ export function TicketsManager({ tickets }: { tickets: Ticket[] }) {
   );
   const [reply, setReply] = useState('');
   const [pending, startTransition] = useTransition();
+  const [drafting, setDrafting] = useState(false);
+  // Confidence tag returned by Soren for the ticket whose draft is currently
+  // sitting in the textarea. Cleared on send / cancel / new ticket open.
+  const [draftBadge, setDraftBadge] = useState<{
+    ticketId: string;
+    confidence: 'high' | 'medium' | 'low';
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function expand(t: Ticket) {
     setOpenId(prev => (prev === t.id ? null : t.id));
     setReply('');
+    setDraftBadge(null);
     setError(null);
   }
 
@@ -61,8 +70,26 @@ export function TicketsManager({ tickets }: { tickets: Ticket[] }) {
         return;
       }
       setReply('');
+      setDraftBadge(null);
       router.refresh();
     });
+  }
+
+  async function draft(t: Ticket) {
+    setError(null);
+    setDrafting(true);
+    try {
+      const res = await draftTicketReply(t.id);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setReply(res.draft);
+      setDraftBadge({ ticketId: t.id, confidence: res.confidence });
+      router.refresh();
+    } finally {
+      setDrafting(false);
+    }
   }
 
   function resolve(t: Ticket) {
@@ -188,10 +215,15 @@ export function TicketsManager({ tickets }: { tickets: Ticket[] }) {
                 {t.status !== 'resolved' && (
                   <div style={{ marginTop: 12 }}>
                     <textarea
-                      placeholder="Type your reply…"
-                      rows={3}
+                      placeholder="Type your reply, or click Ask Soren to draft…"
+                      rows={4}
                       value={reply}
-                      onChange={e => setReply(e.target.value)}
+                      onChange={e => {
+                        setReply(e.target.value);
+                        if (draftBadge && draftBadge.ticketId === t.id) {
+                          setDraftBadge(null);
+                        }
+                      }}
                       style={{
                         padding: '10px 12px',
                         border: '1px solid var(--border)',
@@ -209,25 +241,52 @@ export function TicketsManager({ tickets }: { tickets: Ticket[] }) {
                         display: 'flex',
                         gap: 6,
                         marginTop: 8,
-                        justifyContent: 'flex-end',
+                        alignItems: 'center',
                       }}
                     >
                       <button
                         type="button"
                         className="btn btn-sm btn-ghost"
-                        onClick={() => resolve(t)}
-                        disabled={pending}
+                        onClick={() => draft(t)}
+                        disabled={pending || drafting}
+                        title="Have Soren draft a reply you can edit"
                       >
-                        Mark resolved
+                        {drafting ? 'Drafting…' : '✨ Ask Soren'}
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-accent"
-                        onClick={() => send(t)}
-                        disabled={pending || !reply.trim()}
-                      >
-                        {pending ? 'Sending…' : 'Send reply'}
-                      </button>
+                      {draftBadge && draftBadge.ticketId === t.id && (
+                        <span
+                          className="status-pill"
+                          data-tone={
+                            draftBadge.confidence === 'high'
+                              ? 'green'
+                              : draftBadge.confidence === 'low'
+                                ? 'rose'
+                                : 'amber'
+                          }
+                          style={{ fontSize: 10.5 }}
+                          title="Soren's confidence in this draft"
+                        >
+                          AI {draftBadge.confidence}
+                        </span>
+                      )}
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => resolve(t)}
+                          disabled={pending}
+                        >
+                          Mark resolved
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-accent"
+                          onClick={() => send(t)}
+                          disabled={pending || !reply.trim()}
+                        >
+                          {pending ? 'Sending…' : 'Send reply'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

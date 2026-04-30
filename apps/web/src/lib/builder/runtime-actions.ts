@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { auth } from '@/lib/auth';
+import { anthropic, BUILDER_MODEL } from '@/lib/anthropic/client';
 import {
   brands,
   customers,
@@ -22,6 +23,10 @@ import {
 } from '@/lib/mock-runtime';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+export type DraftResult =
+  | { ok: true; draft: string; confidence: 'high' | 'medium' | 'low' }
+  | { ok: false; error: string };
 
 // ---------- ownership helpers ----------------------------------------------
 
@@ -301,4 +306,119 @@ export async function reopenTicket(ticketId: string): Promise<ActionResult> {
 
   revalidatePath('/app/support');
   return { ok: true };
+}
+
+// ---------- Soren — AI draft for a ticket reply ---------------------------
+
+// Loads the ticket thread + brand identity, asks Claude for a draft reply,
+// returns the draft + a self-reported confidence label. We deliberately do
+// NOT persist the draft — the operator pastes it into the textarea, edits,
+// and clicks Send (which goes through `replyToTicket` like a manual reply).
+// Confidence is also written back to the ticket so the inbox row shows
+// "AI med" / "AI high" without re-running the model.
+export async function draftTicketReply(ticketId: string): Promise<DraftResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: 'Not signed in.' };
+
+  const ticket = await loadOwnedTicket(session.user.id, ticketId);
+  if (!ticket) return { ok: false, error: 'Ticket not found.' };
+
+  const brand = await db.query.brands.findFirst({
+    where: eq(brands.id, ticket.brandId),
+  });
+  if (!brand) return { ok: false, error: 'Brand not found.' };
+
+  const customer = ticket.customerId
+    ? await db.query.customers.findFirst({
+        where: eq(customers.id, ticket.customerId),
+      })
+    : null;
+
+  const thread = await db.query.ticketMessages.findMany({
+    where: eq(ticketMessages.ticketId, ticket.id),
+    orderBy: [asc(ticketMessages.createdAt)],
+  });
+  if (thread.length === 0) {
+    return { ok: false, error: 'Nothing to draft from — ticket has no messages yet.' };
+  }
+
+  const identity = (brand.identity ?? {}) as Record<string, unknown>;
+  const tagline = typeof identity.tagline === 'string' ? identity.tagline : '';
+
+  const senderLabel = (s: 'customer' | 'operator' | 'agent') =>
+    s === 'customer' ? (customer?.name ?? 'Customer') : s === 'agent' ? 'Soren (you, earlier)' : 'Operator';
+
+  const transcript = thread
+    .map(m => `${senderLabel(m.sender)}:\n${m.body}`)
+    .join('\n\n---\n\n');
+
+  const systemPrompt = [
+    `You are Soren, the AI customer-support agent for ${brand.name}.`,
+    tagline ? `Brand tagline: "${tagline}".` : '',
+    'Voice: warm, concise, plainspoken. No corporate filler ("we appreciate your patience"). No upselling. No emojis unless the customer used one first.',
+    'Format: a complete reply ready to send. Open with the customer\'s first name if known, otherwise no greeting. End with "— Soren". Keep it under 120 words unless the question genuinely needs more.',
+    'If the request is something only a human operator can confirm (issuing a refund, cancelling a fulfilled order, escalations, legal), say so honestly and offer the next step instead of fabricating a resolution.',
+    'After the reply body, output exactly one line:',
+    'CONFIDENCE: <high|med|low>',
+    'high = standard request, draft is ready to send as-is.',
+    'med = draft works but needs a quick human review.',
+    'low = needs operator judgment — draft is a starting point.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const userPrompt = [
+    `Subject: ${ticket.subject}`,
+    customer?.name ? `Customer name: ${customer.name}` : '',
+    customer?.email ? `Customer email: ${customer.email}` : '',
+    '',
+    'Thread (oldest → newest):',
+    '',
+    transcript,
+    '',
+    'Draft your reply now.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  let raw = '';
+  try {
+    const res = await anthropic.messages.create({
+      model: BUILDER_MODEL,
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+    raw = res.content
+      .filter(b => b.type === 'text')
+      .map(b => (b as { text: string }).text)
+      .join('\n')
+      .trim();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'AI draft failed.';
+    return { ok: false, error: msg };
+  }
+
+  if (!raw) return { ok: false, error: 'AI returned an empty draft.' };
+
+  // Pull the trailing "CONFIDENCE: high|med|low" off the body.
+  const confMatch = raw.match(/CONFIDENCE:\s*(high|med|medium|low)/i);
+  let confidence: 'high' | 'medium' | 'low' = 'medium';
+  if (confMatch) {
+    const v = confMatch[1]!.toLowerCase();
+    confidence = v === 'high' ? 'high' : v === 'low' ? 'low' : 'medium';
+  }
+  const draft = raw.replace(/\n*CONFIDENCE:\s*(high|med|medium|low)\s*$/i, '').trim();
+
+  // Persist the confidence so the inbox list reflects it without a re-run.
+  await db
+    .update(tickets)
+    .set({
+      aiConfidence: confidence === 'medium' ? 'med' : confidence,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticket.id));
+
+  revalidatePath('/app/support');
+  return { ok: true, draft, confidence };
 }
