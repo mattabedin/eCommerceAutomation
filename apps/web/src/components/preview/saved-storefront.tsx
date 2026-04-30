@@ -1,4 +1,7 @@
+import Link from 'next/link';
+
 import { BlueprintSchema, type Blueprint } from '@/lib/builder/blueprint-schema';
+import { CartIndicator } from '@/components/storefront/cart-indicator';
 
 type DbBrand = {
   id: string;
@@ -96,7 +99,7 @@ export function SavedStorefront({
           <div className="store-nav-actions">
             <span>Search</span>
             <span>Account</span>
-            <span>Bag (0)</span>
+            <CartIndicator slug={brand.slug} />
           </div>
         </nav>
 
@@ -141,7 +144,12 @@ export function SavedStorefront({
               const swatches = uniqueSwatches(variants);
               const onSale = p.salePrice != null;
               return (
-                <div key={p.id} className="product-card">
+                <Link
+                  key={p.id}
+                  href={`/s/${brand.slug}/p/${p.id}`}
+                  className="product-card"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
                   <div
                     className="product-img"
                     data-label={`${p.category.toLowerCase()} · ${p.id.slice(0, 6)}`}
@@ -213,7 +221,7 @@ export function SavedStorefront({
                       )}
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>
