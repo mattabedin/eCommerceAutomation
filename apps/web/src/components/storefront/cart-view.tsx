@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
+  addToCart,
   cartCount,
   removeItem,
   setItemQty,
@@ -16,24 +17,33 @@ import {
   type EnrichedCart,
   type EnrichedItem,
 } from '@/lib/storefront/actions';
+import { FREE_SHIPPING_THRESHOLD_CENTS } from '@/lib/storefront/brand-tokens';
 
-type Colors = { primary: string; secondary: string; accent?: string };
+type UpsellCandidate = {
+  id: string;
+  name: string;
+  price: number;
+  salePrice: number | null;
+  tone: string | null;
+};
 
 export function CartView({
   slug,
-  colors,
+  upsellCandidates,
 }: {
   slug: string;
-  colors: Colors;
+  upsellCandidates: UpsellCandidate[];
 }) {
   const router = useRouter();
   const items = useCart(slug);
   const [enriched, setEnriched] = useState<EnrichedCart | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [discount, setDiscount] = useState('');
+  const [discountStatus, setDiscountStatus] = useState<
+    'idle' | 'applied' | 'invalid'
+  >('idle');
 
-  // Re-fetch enriched cart whenever the local items list changes — prices
-  // and stock are authoritative on the server.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -64,52 +74,97 @@ export function CartView({
     });
   }
 
+  function applyDiscount() {
+    const code = discount.trim().toUpperCase();
+    if (!code) return;
+    // Demo: WELCOME10 is the only stub code. Real coupons land in Phase 6+.
+    if (code === 'WELCOME10') setDiscountStatus('applied');
+    else setDiscountStatus('invalid');
+  }
+
+  const cartItemKeys = useMemo(
+    () =>
+      new Set(items.map(i => `${i.productId}:${i.variantId ?? ''}`)),
+    [items],
+  );
+  const upsellPicks = upsellCandidates
+    .filter(c => !cartItemKeys.has(`${c.id}:`))
+    .slice(0, 4);
+
   if (cartCount(items) === 0) {
     return (
       <section
         style={{
-          padding: '64px 24px',
+          padding: '80px 24px',
           textAlign: 'center',
           maxWidth: 480,
           margin: '0 auto',
         }}
       >
-        <h1 style={{ color: colors.primary }}>Your bag is empty</h1>
-        <p style={{ color: 'var(--fg-3)', marginTop: 8 }}>
-          Add a few pieces to see them here.
-        </p>
-        <Link
-          href={`/s/${slug}`}
-          className="btn"
+        <div
           style={{
-            marginTop: 16,
-            background: colors.primary,
-            color: 'white',
-            borderColor: colors.primary,
-            padding: '10px 18px',
+            fontSize: 36,
+            fontFamily: 'var(--font-serif)',
+            color: 'var(--brand-primary)',
+            marginBottom: 8,
           }}
         >
+          Your bag is empty
+        </div>
+        <p style={{ color: 'var(--fg-3)', marginTop: 8, marginBottom: 24 }}>
+          Add a few pieces to see them here.
+        </p>
+        <Link href={`/s/${slug}`} className="btn-brand">
           Continue shopping →
         </Link>
       </section>
     );
   }
 
+  const subtotal = enriched?.subtotal ?? 0;
+  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD_CENTS - subtotal);
+  const fillPct = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD_CENTS) * 100);
+  const discountAmount =
+    discountStatus === 'applied' ? Math.round(subtotal * 0.1) : 0;
+  const total = subtotal - discountAmount;
+
   return (
-    <section
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
-        gap: 48,
-        padding: '40px 56px 64px',
-        maxWidth: 1280,
-        margin: '0 auto',
-      }}
-    >
+    <section className="cart-shell">
       <div>
-        <h1 style={{ color: colors.primary, fontSize: 32, marginBottom: 16 }}>
+        <h1
+          style={{
+            fontFamily: 'var(--font-serif)',
+            color: 'var(--brand-primary)',
+            fontSize: 32,
+            marginBottom: 8,
+          }}
+        >
           Your bag
         </h1>
+        <div
+          style={{
+            color: 'var(--fg-3)',
+            fontSize: 13,
+            marginBottom: 16,
+          }}
+        >
+          {cartCount(items)} item{cartCount(items) === 1 ? '' : 's'}
+        </div>
+
+        <div className="cart-progress">
+          <div className="cart-progress-text">
+            <span>
+              {remaining === 0
+                ? '✓ You unlocked free shipping'
+                : `Add $${(remaining / 100).toFixed(2)} more for free shipping`}
+            </span>
+            <span>${(subtotal / 100).toFixed(2)} / ${(FREE_SHIPPING_THRESHOLD_CENTS / 100).toFixed(0)}</span>
+          </div>
+          <div className="cart-progress-track">
+            <div className="cart-progress-fill" style={{ width: `${fillPct}%` }} />
+          </div>
+        </div>
+
         {error && (
           <div
             style={{
@@ -126,6 +181,7 @@ export function CartView({
             {error}
           </div>
         )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {(enriched?.items ?? []).map(i => (
             <CartLine
@@ -142,84 +198,124 @@ export function CartView({
         </div>
       </div>
 
-      <aside
-        style={{
-          padding: 24,
-          background: 'var(--surface-2)',
-          borderRadius: 12,
-          height: 'fit-content',
-          position: 'sticky',
-          top: 24,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: 13,
-            color: 'var(--fg-2)',
-            marginBottom: 8,
-          }}
-        >
+      <aside className="cart-summary">
+        {upsellPicks.length > 0 && (
+          <div className="cart-upsell">
+            <div className="cart-upsell-head">Frequently bought with</div>
+            <div className="cart-upsell-grid">
+              {upsellPicks.map(u => (
+                <div key={u.id} className="cart-upsell-card">
+                  <div
+                    className="swatch"
+                    style={{
+                      background: u.tone
+                        ? `linear-gradient(135deg, ${u.tone}66, ${u.tone}cc)`
+                        : 'var(--surface-2)',
+                    }}
+                  />
+                  <div className="body">
+                    <div className="name">{u.name}</div>
+                    <div className="price">
+                      ${((u.salePrice ?? u.price) / 100).toFixed(2)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addToCart(slug, {
+                        productId: u.id,
+                        variantId: null,
+                        quantity: 1,
+                      });
+                      router.refresh();
+                    }}
+                    aria-label={`Add ${u.name} to bag`}
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="cart-summary-row">
           <span>Subtotal</span>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {formatMoney(enriched?.subtotal ?? 0)}
+            ${(subtotal / 100).toFixed(2)}
           </span>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: 12,
-            color: 'var(--fg-3)',
-            marginBottom: 16,
-          }}
-        >
-          <span>Shipping</span>
-          <span>Calculated at checkout</span>
+        {discountAmount > 0 && (
+          <div
+            className="cart-summary-row"
+            style={{ color: 'var(--brand-secondary)' }}
+          >
+            <span>Discount (WELCOME10)</span>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+              −${(discountAmount / 100).toFixed(2)}
+            </span>
+          </div>
+        )}
+        <div className="cart-summary-row">
+          <span className="label">Shipping</span>
+          <span className="label">
+            {remaining === 0 ? 'Free' : 'Calculated at checkout'}
+          </span>
         </div>
-        <div
-          style={{
-            borderTop: '1px solid var(--border)',
-            paddingTop: 12,
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: 16,
-            fontWeight: 600,
-            marginBottom: 16,
-          }}
-        >
+
+        <div className="cart-discount">
+          <input
+            type="text"
+            placeholder="Discount code"
+            value={discount}
+            onChange={e => {
+              setDiscount(e.target.value);
+              if (discountStatus !== 'idle') setDiscountStatus('idle');
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') applyDiscount();
+            }}
+          />
+          <button type="button" onClick={applyDiscount}>
+            Apply
+          </button>
+        </div>
+        {discountStatus === 'invalid' && (
+          <div
+            style={{
+              fontSize: 11,
+              color: 'var(--rose)',
+              fontFamily: 'var(--font-mono)',
+              marginBottom: 8,
+              marginTop: -8,
+            }}
+          >
+            That code isn't valid.
+          </div>
+        )}
+
+        <div className="cart-summary-total">
           <span>Total</span>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {formatMoney(enriched?.subtotal ?? 0)}
+            ${(total / 100).toFixed(2)}
           </span>
         </div>
+
         <button
           type="button"
           onClick={checkout}
           disabled={pending || !enriched || enriched.items.some(i => !i.available)}
-          className="btn"
-          style={{
-            width: '100%',
-            background: colors.primary,
-            color: 'white',
-            borderColor: colors.primary,
-            padding: '12px 18px',
-            fontSize: 14,
-          }}
+          className="btn-brand"
+          style={{ width: '100%', justifyContent: 'center', padding: '14px 18px' }}
         >
-          {pending ? 'Redirecting to checkout…' : 'Checkout →'}
+          {pending ? 'Redirecting to checkout…' : 'Checkout securely →'}
         </button>
-        <div
-          style={{
-            marginTop: 8,
-            textAlign: 'center',
-            fontSize: 11,
-            color: 'var(--fg-4)',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          payments by Stripe
+
+        <div className="cart-trust-row">
+          <span>✓ SSL ENCRYPTED</span>
+          <span>✓ STRIPE</span>
+          <span>✓ APPLE PAY</span>
+          <span>✓ 60-DAY RETURNS</span>
         </div>
       </aside>
     </section>
@@ -255,19 +351,19 @@ function CartLine({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '80px 1fr 110px 30px',
+        gridTemplateColumns: '88px 1fr 110px 30px',
         gap: 16,
         alignItems: 'center',
-        padding: 12,
+        padding: 14,
         border: '1px solid var(--border)',
-        borderRadius: 8,
+        borderRadius: 'var(--radius)',
         background: 'var(--surface)',
       }}
     >
       <div
         style={{
           aspectRatio: '1 / 1',
-          borderRadius: 6,
+          borderRadius: 'var(--radius-sm)',
           background: item.tone
             ? `linear-gradient(135deg, ${item.tone}66, ${item.tone}cc)`
             : 'var(--surface-2)',
@@ -297,7 +393,7 @@ function CartLine({
             fontSize: 13,
           }}
         >
-          <span>{formatMoney(item.unitPrice)}</span>
+          <span>${(item.unitPrice / 100).toFixed(2)}</span>
           {item.unitPrice < item.unitRegular && (
             <span
               style={{
@@ -306,7 +402,7 @@ function CartLine({
                 textDecoration: 'line-through',
               }}
             >
-              {formatMoney(item.unitRegular)}
+              ${(item.unitRegular / 100).toFixed(2)}
             </span>
           )}
         </div>
@@ -349,14 +445,11 @@ function CartLine({
           color: 'var(--fg-4)',
           cursor: 'pointer',
           padding: 4,
+          fontSize: 18,
         }}
       >
         ×
       </button>
     </div>
   );
-}
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }

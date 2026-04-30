@@ -1,7 +1,13 @@
 import Link from 'next/link';
 
 import { BlueprintSchema, type Blueprint } from '@/lib/builder/blueprint-schema';
+import { brandTokenCss } from '@/lib/storefront/brand-tokens';
+import { AnnouncementBar } from '@/components/storefront/announcement-bar';
 import { CartIndicator } from '@/components/storefront/cart-indicator';
+import { CategoryTiles } from '@/components/storefront/category-tiles';
+import { EditorialBlock } from '@/components/storefront/editorial-block';
+import { NewsletterCapture } from '@/components/storefront/newsletter-capture';
+import { HeroTrustBadges } from '@/components/storefront/trust-badges';
 
 type DbBrand = {
   id: string;
@@ -36,15 +42,10 @@ type DbProduct = {
   variants?: DbVariant[];
 };
 
-const GENERIC_BENEFITS = [
-  { i: '✦', t: 'Built to last', s: 'Pieces designed for years of daily use, not seasons.' },
-  { i: '✈', t: 'Free fast shipping', s: '2–3 day delivery, carbon-offset, no minimum.' },
-  { i: '↺', t: '60-day returns', s: "Live with it. If it isn't right, we'll take it back." },
-  { i: '◐', t: 'Made responsibly', s: 'Materials sourced from partners we audit ourselves.' },
-];
-
-// Server component. Renders a saved store from DB rows, using the Blueprint
-// identity blob for hero copy, palette, and categories.
+// Server component. Renders the conversion-optimised storefront from DB
+// rows + the brand's identity Blueprint. The whole subtree is wrapped in
+// a `[data-brand=...]` block so per-brand colour tokens stay scoped and
+// the admin shell never picks them up.
 export function SavedStorefront({
   brand,
   products,
@@ -52,8 +53,6 @@ export function SavedStorefront({
   brand: DbBrand;
   products: DbProduct[];
 }) {
-  // The identity column holds the original Blueprint when 2D approved. Older
-  // rows or migrations might not — fall back gracefully.
   const parsedIdentity = BlueprintSchema.safeParse(brand.identity);
   const identity: Partial<Blueprint> = parsedIdentity.success
     ? parsedIdentity.data
@@ -64,8 +63,7 @@ export function SavedStorefront({
     secondary: '#6366F1',
     accent: '#fafafa',
   };
-  // Prefer the union of every product's tags so categories editable from the
-  // products page show up in the storefront nav. Fall back to identity.
+
   const productCats = Array.from(
     new Set(
       products.flatMap(p =>
@@ -73,28 +71,50 @@ export function SavedStorefront({
       ),
     ),
   );
-  const categories =
+  const navCategories =
     productCats.length > 0 ? productCats : (identity.categories ?? []);
+
   const heroHeadline = identity.hero_headline ?? brand.name;
   const heroSubhead = identity.hero_subhead ?? '';
-
   const heroParts = heroHeadline.split(' ');
   const heroLast = heroParts.slice(-1).join(' ');
   const heroLead = heroParts.slice(0, -1).join(' ');
 
+  const tokenCss = brandTokenCss(brand.slug, colors);
+
+  // Preview hero image: stack the two top product tones into a layered
+  // gradient so the hero feels brand-specific even without photography.
+  const heroTones = products.slice(0, 2).map(p => p.tone).filter(Boolean) as string[];
+  const heroBg =
+    heroTones.length >= 2
+      ? `linear-gradient(135deg, ${heroTones[0]}cc, ${heroTones[1]}99)`
+      : `linear-gradient(135deg, ${colors.secondary}55, ${colors.primary}cc)`;
 
   return (
-    <div style={{ padding: 0 }}>
+    <div data-brand={brand.slug}>
+      <style dangerouslySetInnerHTML={{ __html: tokenCss }} />
       <div className="store" style={{ background: 'var(--surface)' }}>
+        <AnnouncementBar message="✦ Free shipping over $75 · Free 60-day returns ✦" />
+
         <nav className="store-nav">
-          <div className="store-logo" style={{ color: colors.primary }}>
+          <Link
+            href={`/s/${brand.slug}`}
+            className="store-logo"
+            style={{ color: 'var(--brand-primary)', textDecoration: 'none' }}
+          >
             {brand.name}
-          </div>
+          </Link>
           <div className="store-nav-items">
-            {categories.map(cat => (
-              <span key={cat}>{cat}</span>
+            {navCategories.slice(0, 5).map(cat => (
+              <Link
+                key={cat}
+                href={`/s/${brand.slug}#cat-${slugify(cat)}`}
+                style={{ color: 'inherit', textDecoration: 'none', textTransform: 'capitalize' }}
+              >
+                {cat}
+              </Link>
             ))}
-            <span>Journal</span>
+            <span style={{ color: 'var(--fg-3)' }}>Journal</span>
           </div>
           <div className="store-nav-actions">
             <span>Search</span>
@@ -105,149 +125,66 @@ export function SavedStorefront({
 
         <section className="store-hero">
           <div>
-            <h1 style={{ fontSize: 56, color: colors.primary }}>
-              {heroLead} <em style={{ color: colors.secondary }}>{heroLast}</em>
-            </h1>
-            {heroSubhead && <p>{heroSubhead}</p>}
-            <button
-              type="button"
-              className="btn"
+            <div
               style={{
-                background: colors.primary,
-                color: 'white',
-                borderColor: colors.primary,
-                padding: '10px 18px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--fg-3)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                marginBottom: 14,
               }}
             >
+              New collection · 2026
+            </div>
+            <h1 style={{ color: 'var(--brand-primary)' }}>
+              {heroLead}{' '}
+              <em style={{ color: 'var(--brand-secondary)' }}>{heroLast}</em>
+            </h1>
+            {heroSubhead && <p>{heroSubhead}</p>}
+            <Link
+              href={`/s/${brand.slug}#featured`}
+              className="btn-brand"
+            >
               Shop the collection →
-            </button>
+            </Link>
+            <HeroTrustBadges />
           </div>
-          <div
-            className="hero-img"
-            style={{
-              background: `linear-gradient(135deg, ${colors.secondary}33, ${colors.primary}cc)`,
-            }}
-          />
+          <div className="hero-img" style={{ background: heroBg }} />
         </section>
 
-        <section className="store-section">
-          <h2 style={{ color: colors.primary, fontSize: 32 }}>Featured</h2>
+        {navCategories.length >= 2 && (
+          <CategoryTiles
+            slug={brand.slug}
+            categories={navCategories}
+            products={products.map(p => ({
+              id: p.id,
+              name: p.name,
+              category: p.category,
+              categories: p.categories ?? [],
+              tone: p.tone,
+            }))}
+          />
+        )}
+
+        <section className="store-section" id="featured">
+          <h2 style={{ color: 'var(--brand-primary)' }}>Featured</h2>
           <div className="sub">
-            {products.length} pieces · curated by Forge AI
+            {products.length} pieces · curated for the season
           </div>
           <div className="product-grid">
-            {products.map(p => {
-              const variants = p.variants ?? [];
-              const sizes = Array.from(
-                new Set(variants.map(v => v.size).filter((s): s is string => !!s)),
-              );
-              const swatches = uniqueSwatches(variants);
-              const onSale = p.salePrice != null;
-              return (
-                <Link
-                  key={p.id}
-                  href={`/s/${brand.slug}/p/${p.id}`}
-                  className="product-card"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <div
-                    className="product-img"
-                    data-label={`${p.category.toLowerCase()} · ${p.id.slice(0, 6)}`}
-                    style={{
-                      background: p.tone
-                        ? `repeating-linear-gradient(135deg, ${p.tone}22, ${p.tone}22 8px, ${p.tone}11 8px, ${p.tone}11 16px), linear-gradient(135deg, ${p.tone}66, ${p.tone}cc)`
-                        : 'var(--surface-2)',
-                    }}
-                  />
-                  <div className="product-name" style={{ color: colors.primary }}>
-                    {p.name}
-                  </div>
-                  <div className="product-price">
-                    {onSale ? (
-                      <>
-                        <span style={{ color: colors.secondary, fontWeight: 600 }}>
-                          ${((p.salePrice ?? 0) / 100).toFixed(2)}
-                        </span>{' '}
-                        <span className="compare">
-                          ${(p.price / 100).toFixed(2)}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        ${(p.price / 100).toFixed(2)}
-                        {p.wasPrice > p.price && (
-                          <>
-                            {' '}
-                            <span className="compare">
-                              ${(p.wasPrice / 100).toFixed(2)}
-                            </span>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {(sizes.length > 0 || swatches.length > 0) && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 10,
-                        alignItems: 'center',
-                        marginTop: 6,
-                        fontSize: 11,
-                        color: 'var(--fg-3)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {swatches.length > 0 && (
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {swatches.slice(0, 5).map(sw => (
-                            <span
-                              key={sw.key}
-                              title={sw.label}
-                              style={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: 999,
-                                background: sw.hex ?? 'var(--surface-2)',
-                                border: '1px solid var(--border)',
-                                display: 'inline-block',
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {sizes.length > 0 && (
-                        <span>{sizes.slice(0, 6).join(' · ')}</span>
-                      )}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        <section
-          className="store-section"
-          style={{ background: colors.accent || 'var(--surface-2)' }}
-        >
-          <h2 style={{ color: colors.primary, fontSize: 32 }}>Why {brand.name}</h2>
-          <div className="sub">Built for people who care.</div>
-          <div className="benefits">
-            {GENERIC_BENEFITS.map(b => (
-              <div key={b.t} className="benefit">
-                <div
-                  className="benefit-icon"
-                  style={{ color: colors.secondary, background: `${colors.secondary}22` }}
-                >
-                  {b.i}
-                </div>
-                <h4 style={{ color: colors.primary }}>{b.t}</h4>
-                <p>{b.s}</p>
-              </div>
+            {products.map(p => (
+              <ProductCard key={p.id} brandSlug={brand.slug} product={p} />
             ))}
           </div>
         </section>
+
+        <EditorialBlock
+          brandName={brand.name}
+          tagline={identity.tagline}
+        />
+
+        <NewsletterCapture brandSlug={brand.slug} />
 
         <footer className="store-footer">
           <span>© 2026 {brand.name}</span>
@@ -258,6 +195,104 @@ export function SavedStorefront({
         </footer>
       </div>
     </div>
+  );
+}
+
+function ProductCard({
+  brandSlug,
+  product,
+}: {
+  brandSlug: string;
+  product: DbProduct;
+}) {
+  const variants = product.variants ?? [];
+  const sizes = Array.from(
+    new Set(variants.map(v => v.size).filter((s): s is string => !!s)),
+  );
+  const swatches = uniqueSwatches(variants);
+  const onSale = product.salePrice != null;
+  const discountPct =
+    onSale && product.price > 0
+      ? Math.round(((product.price - (product.salePrice ?? 0)) / product.price) * 100)
+      : null;
+
+  return (
+    <Link
+      href={`/s/${brandSlug}/p/${product.id}`}
+      className="product-card"
+      style={{ textDecoration: 'none', color: 'inherit' }}
+    >
+      {onSale && discountPct != null && discountPct > 0 && (
+        <span className="badge-sale">−{discountPct}%</span>
+      )}
+      <div
+        className="product-img"
+        data-label={`${product.category.toLowerCase()} · ${product.id.slice(0, 6)}`}
+        style={{
+          background: product.tone
+            ? `repeating-linear-gradient(135deg, ${product.tone}22, ${product.tone}22 8px, ${product.tone}11 8px, ${product.tone}11 16px), linear-gradient(135deg, ${product.tone}66, ${product.tone}cc)`
+            : 'var(--surface-2)',
+        }}
+      />
+      <div className="product-name" style={{ color: 'var(--brand-primary)' }}>
+        {product.name}
+      </div>
+      <div className="product-price">
+        {onSale ? (
+          <>
+            <span style={{ color: 'var(--brand-secondary)', fontWeight: 600 }}>
+              ${((product.salePrice ?? 0) / 100).toFixed(2)}
+            </span>{' '}
+            <span className="compare">${(product.price / 100).toFixed(2)}</span>
+          </>
+        ) : (
+          <>
+            ${(product.price / 100).toFixed(2)}
+            {product.wasPrice > product.price && (
+              <>
+                {' '}
+                <span className="compare">
+                  ${(product.wasPrice / 100).toFixed(2)}
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      {(sizes.length > 0 || swatches.length > 0) && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            marginTop: 6,
+            fontSize: 11,
+            color: 'var(--fg-3)',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          {swatches.length > 0 && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {swatches.slice(0, 5).map(sw => (
+                <span
+                  key={sw.key}
+                  title={sw.label}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 999,
+                    background: sw.hex ?? 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                    display: 'inline-block',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {sizes.length > 0 && <span>{sizes.slice(0, 6).join(' · ')}</span>}
+        </div>
+      )}
+    </Link>
   );
 }
 
@@ -276,4 +311,8 @@ function uniqueSwatches(
     });
   }
   return Array.from(seen.values());
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
