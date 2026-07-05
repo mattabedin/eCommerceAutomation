@@ -2,8 +2,8 @@ export function HowItWorks() {
   return (
     <section className="band">
       <div className="band-header">
-        <div className="kicker">⊹ How it works</div>
-        <h2 className="section-title">Three steps from idea to revenue.</h2>
+        <div className="kicker">How it works</div>
+        <h2 className="section-title">Three steps from idea to your first sale.</h2>
         <p
           className="lead"
           style={{ margin: '18px auto 0', fontSize: 16 }}

@@ -1,8 +1,8 @@
 const STATS = [
-  { num: '4m 12s', label: 'Median time to first\nstore live' },
-  { num: '78%', label: 'Tickets auto-resolved\nby AI agents' },
-  { num: '3.4×', label: 'Avg conversion vs\nShopify default' },
-  { num: '$0', label: 'Forge transaction fees\non every plan' },
+  { num: '4 min', label: 'From idea to a\nstore that’s live' },
+  { num: '8 in 10', label: 'Customer questions\nanswered for you' },
+  { num: '3.4×', label: 'More visitors turned\ninto buyers' },
+  { num: '$0', label: 'Taken from your\nsales, ever' },
 ];
 
 export function Stats() {

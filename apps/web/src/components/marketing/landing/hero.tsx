@@ -7,7 +7,7 @@ export function Hero() {
       <div className="hero-mesh" />
       <div className="hero-inner">
         <span className="eyebrow">
-          <span className="dot" /> Backed by Index, Spark, a16z · $28M raised
+          <span className="dot" /> Trusted by 4,200+ independent store owners
         </span>
         <h1 className="display">
           The AI that runs your store
@@ -16,15 +16,12 @@ export function Hero() {
             <span className="grad">while you sleep.</span>
           </em>
         </h1>
-        <p
-          className="lead"
-          style={{ marginLeft: 'auto', marginRight: 'auto' }}
-        >
-          Forge replaces Shopify, Klaviyo, Gorgias, and seven more tools with
-          one platform — where AI agents handle pricing, support, marketing,
-          and inventory automatically.{' '}
+        <p className="lead">
+          Tell Forge what you want to sell. In minutes you get a real store —
+          products, photos, prices, the whole thing — plus a team of AI
+          helpers that quietly handle the day-to-day.{' '}
           <strong style={{ color: 'var(--fg)' }}>
-            You approve. Forge does the work.
+            You approve. Forge does the rest.
           </strong>
         </p>
 
@@ -35,6 +32,19 @@ export function Hero() {
           <a className="btn btn-lg" href="#demo">
             ▶ Watch 90-second demo
           </a>
+        </div>
+
+        <div className="hero-social">
+          <div className="avatars">
+            <span style={{ background: '#c4f23c' }}>M</span>
+            <span style={{ background: '#4ade80' }}>J</span>
+            <span style={{ background: '#fbbf24' }}>S</span>
+            <span style={{ background: '#fb7185' }}>A</span>
+          </div>
+          <div className="stars">★★★★★</div>
+          <div className="proof-text">
+            <strong>4.9/5</strong> from 1,200+ store owners
+          </div>
         </div>
 
         <form

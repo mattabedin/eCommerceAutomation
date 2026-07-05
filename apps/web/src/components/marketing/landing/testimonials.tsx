@@ -38,16 +38,17 @@ export function Testimonials() {
   return (
     <section className="band" id="customers">
       <div className="band-header">
-        <div className="kicker">⊹ From the brands using Forge</div>
+        <div className="kicker">Real stores. Real results.</div>
         <h2 className="section-title">
           "It's like having ten
           <br />
-          employees on day one."
+          employees on <em>day one.</em>"
         </h2>
       </div>
       <div className="testimonials">
         {TESTIMONIALS.map(t => (
           <div key={t.name} className="testi">
+            <div className="testi-stars">★★★★★</div>
             <p className="testi-quote">{t.quote}</p>
             <div className="testi-author">
               <div className="testi-avatar" style={{ background: t.gradient }}>
@@ -57,6 +58,7 @@ export function Testimonials() {
                 <div className="testi-name">{t.name}</div>
                 <div className="testi-role">{t.role}</div>
               </div>
+              <span className="testi-verified">✓ Verified</span>
             </div>
             <span className="testi-metric">{t.metric}</span>
           </div>

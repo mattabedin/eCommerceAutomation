@@ -7,20 +7,20 @@ export function CTA() {
         <div
           className="kicker"
           style={{
-            color: '#a5b4fc',
             position: 'relative',
             display: 'inline-block',
             marginBottom: 12,
           }}
         >
-          ⊹ Free to start · live tonight
+          Free to start · live tonight
         </div>
         <h2>
           Your store, <em>built tonight.</em>
         </h2>
         <p>
-          Free to build. No credit card. Live in under 5 minutes — with five AI
-          teammates already running it.
+          Describe your idea and watch it come to life in minutes — with a team
+          of AI helpers already running the day-to-day. No code, no credit card,
+          no risk.
         </p>
         <div
           style={{
@@ -31,19 +31,24 @@ export function CTA() {
           }}
         >
           <Link className="btn btn-primary btn-lg" href="/signup">
-            Start building →
+            Build my store free →
           </Link>
           <Link
             className="btn btn-lg"
             href="/pricing"
             style={{
               background: 'transparent',
-              color: 'white',
-              borderColor: 'rgba(255,255,255,0.2)',
+              color: 'var(--fg)',
+              borderColor: 'var(--border-strong)',
             }}
           >
             See pricing
           </Link>
+        </div>
+        <div className="guarantee">
+          <span><span className="ic">✓</span> Free 14-day trial</span>
+          <span><span className="ic">✓</span> Cancel anytime</span>
+          <span><span className="ic">✓</span> Keep everything you build</span>
         </div>
       </div>
     </section>

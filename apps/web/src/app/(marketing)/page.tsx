@@ -12,7 +12,7 @@ import { CTA } from '@/components/marketing/landing/cta';
 export const metadata = {
   title: 'Forge — The AI that runs your store while you sleep',
   description:
-    'Forge replaces Shopify, Klaviyo, Gorgias, and seven more tools with one platform — where AI agents handle pricing, support, marketing, and inventory automatically.',
+    'Describe what you want to sell and Forge builds your whole online store in minutes — products, photos, prices and more — then quietly handles the day-to-day so you can focus on your customers.',
 };
 
 export default function LandingPage() {

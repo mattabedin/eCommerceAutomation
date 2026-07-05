@@ -2,7 +2,7 @@ export function ProblemPromise() {
   return (
     <section className="band">
       <div className="band-header">
-        <div className="kicker">⊹ The Forge difference</div>
+        <div className="kicker">The Forge difference</div>
         <h2 className="section-title">
           Other platforms hand you tools.
           <br />
